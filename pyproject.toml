@@ -8,10 +8,9 @@ authors = [
 dependencies = [
     "fastapi>=0.103.1",
     "uvicorn>=0.23.2",
-    "pydantic>=2.3.0",
-    "pydantic-settings>=2.0.3",
-    "loguru>=0.7.2",
+    "ormar>=0.12.2",
     "python-multipart>=0.0.6",
+    "loguru>=0.7.2",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
@@ -28,6 +27,7 @@ dev-dependencies = [
     "pip>=23.2.1",
     "setuptools>=68.2.2",
     "wheel>=0.41.2",
+    "ormar[sqlite]>=0.12.2",
     "ipython>=8.12.2",
     "rich>=13.5.3",
     "black>=23.9.1",
