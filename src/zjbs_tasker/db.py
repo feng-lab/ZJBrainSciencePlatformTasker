@@ -4,6 +4,7 @@ from typing import Any
 
 import databases
 import sqlalchemy
+from databases import Database
 from ormar import (
     JSON,
     BigInteger,
@@ -18,13 +19,13 @@ from ormar import (
     String,
 )
 from pydantic import Json
-from sqlalchemy import func
+from sqlalchemy import MetaData, func
 from sqlalchemy.sql import expression
 
 from zjbs_tasker.settings import settings
 
-database = databases.Database(settings.DATABASE_URL)
-metadata = sqlalchemy.MetaData()
+database: Database = databases.Database(settings.DATABASE_URL)
+metadata: MetaData = sqlalchemy.MetaData()
 
 
 class BaseMeta(ModelMeta):
