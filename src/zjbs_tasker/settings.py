@@ -1,11 +1,9 @@
 from pathlib import Path
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="ZJBS_TASKER_")
-
     # 调试模式
     DEBUG_MODE: bool = False
 
