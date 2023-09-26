@@ -6,7 +6,7 @@
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
-      <env name="ZJBS_TASKER_DEBUG_MODE" value="on" />
+      <env name="DEBUG_MODE" value="on" />
     </envs>
     <option name="SDK_HOME" value="C:\Code\ZJBrainSciencePlatformTasker\.venv\Scripts\python.exe" />
     <option name="SDK_NAME" value="Python 3.11 (ZJBrainSciencePlatformTasker)" />

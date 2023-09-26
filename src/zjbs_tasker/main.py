@@ -3,8 +3,11 @@ import sys
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import RedirectResponse
+from fastapi_crudrouter import OrmarCRUDRouter
 from loguru import logger
 
+from zjbs_tasker.db import Task, TaskRun, TaskTemplate, database
+from zjbs_tasker.model import CreateTask, CreateTaskRun, CreateTaskTemplate
 from zjbs_tasker.settings import settings
 
 app: FastAPI = FastAPI(title="ZJBrainSciencePlatform Tasker", description="之江实验室 Brain Science 平台任务平台")
@@ -12,7 +15,7 @@ app: FastAPI = FastAPI(title="ZJBrainSciencePlatform Tasker", description="之�
 # 中间件
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
-# 配置日志
+# 日志
 logger.remove()
 LOG_FORMAT: str = "{time:YYYY-MM-DD HH:mm:ss.SSS}|{level}|{name}:{function}:{line}|{message}"
 logger.add(
@@ -22,9 +25,28 @@ if settings.DEBUG_MODE:
     logger.add(sys.stdout, level="DEBUG", format=LOG_FORMAT, diagnose=True, enqueue=True)
 
 
+# 数据库
+@app.on_event("startup")
+async def connect_database() -> None:
+    if not database.is_connected:
+        await database.connect()
+
+
+@app.on_event("shutdown")
+async def disconnect_database() -> None:
+    if database.is_connected:
+        await database.disconnect()
+
+
 # 根目录
 @app.get("/")
 async def index() -> RedirectResponse:
     if settings.DEBUG_MODE:
         return RedirectResponse("/docs")
     raise HTTPException(status_code=404, detail="/ Not Found")
+
+
+# CRUD Router
+app.include_router(OrmarCRUDRouter(Task, create_schema=CreateTask, tags=["crud"]))
+app.include_router(OrmarCRUDRouter(TaskTemplate, create_schema=CreateTaskTemplate, tags=["crud"]))
+app.include_router(OrmarCRUDRouter(TaskRun, create_schema=CreateTaskRun, tags=["crud"]))

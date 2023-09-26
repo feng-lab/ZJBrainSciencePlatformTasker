@@ -5,19 +5,7 @@ from typing import Any
 import databases
 import sqlalchemy
 from databases import Database
-from ormar import (
-    JSON,
-    BigInteger,
-    Boolean,
-    DateTime,
-    Enum,
-    ForeignKey,
-    Integer,
-    Model,
-    ModelMeta,
-    ReferentialAction,
-    String,
-)
+from ormar import JSON, Boolean, DateTime, Enum, ForeignKey, Integer, Model, ModelMeta, ReferentialAction, String
 from pydantic import Json
 from sqlalchemy import MetaData, func
 from sqlalchemy.sql import expression
@@ -43,7 +31,7 @@ def long_string(**kwargs):
 
 class ModelMixin:
     # 主键
-    id: int = BigInteger(primary_key=True, autoincrement=True)
+    id: int = Integer(primary_key=True, autoincrement=True)
     # 创建时间
     create_at: datetime = DateTime(server_default=func.now())
     # 修改时间
@@ -84,7 +72,7 @@ class Task(Model, ModelMixin):
     # 名称
     name: str = short_string()
     # 创建者ID
-    creator_id: int = BigInteger()
+    creator_id: int = Integer()
     # 源文件路径
     source_files: Json[list[str]] = JSON()
     # 允许重试的次数

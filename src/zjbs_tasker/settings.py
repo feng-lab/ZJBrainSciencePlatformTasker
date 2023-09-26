@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     LOG_DIR: Path = Path(__file__).parent.parent.parent / "debug_data"
 
     # 数据库URL
-    DATABASE_URL: str = "sqlite:///debug_data/data.sqlite"
+    DATABASE_URL: str = "postgresql://zjlab:zjlab2023@localhost:7100/zjbs-tasker"
 
 
 settings: Settings = Settings()

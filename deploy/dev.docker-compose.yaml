@@ -1,0 +1,16 @@
+version: "3.9"
+name: tasker-dev
+
+services:
+  database:
+    image: postgres:16
+    ports:
+      - "7100:5432"
+    environment:
+      - POSTGRES_USER=zjlab
+      - POSTGRES_PASSWORD=zjlab2023
+      - POSTGRES_DB=zjbs-tasker
+    volumes:
+      - ../debug_data/database:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready

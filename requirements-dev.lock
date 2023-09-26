@@ -7,10 +7,10 @@
 #   all-features: false
 
 -e file:.
-aiosqlite==0.19.0
 alembic==1.12.0
 anyio==3.7.1
 asttokens==2.4.0
+asyncpg==0.27.0
 backcall==0.2.0
 black==23.9.1
 click==8.1.7
@@ -19,6 +19,7 @@ databases==0.6.2
 decorator==5.1.1
 executing==1.2.0
 fastapi==0.103.1
+fastapi-crudrouter==0.8.6
 greenlet==2.0.2
 h11==0.14.0
 idna==3.4
@@ -39,6 +40,7 @@ pathspec==0.11.2
 pickleshare==0.7.5
 platformdirs==3.10.0
 prompt-toolkit==3.0.39
+psycopg2-binary==2.9.7
 pure-eval==0.2.2
 pydantic==1.10.8
 pygments==2.16.1
