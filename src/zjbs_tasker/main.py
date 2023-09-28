@@ -5,7 +5,9 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi_crudrouter import OrmarCRUDRouter
 from loguru import logger
+from zjbs_file_client import close_client, init_client
 
+from zjbs_tasker.api import router as api_router
 from zjbs_tasker.db import Task, TaskRun, TaskTemplate, database
 from zjbs_tasker.model import CreateTask, CreateTaskRun, CreateTaskTemplate
 from zjbs_tasker.settings import settings
@@ -38,13 +40,26 @@ async def disconnect_database() -> None:
         await database.disconnect()
 
 
-# 根目录
+# 文件服务客户端
+@app.on_event("startup")
+async def start_file_client() -> None:
+    await init_client(settings.FILE_SERVICE_URL, timeout=60)
+
+
+@app.on_event("shutdown")
+async def close_file_client() -> None:
+    await close_client()
+
+
+# API 定义
 @app.get("/")
 async def index() -> RedirectResponse:
     if settings.DEBUG_MODE:
         return RedirectResponse("/docs")
     raise HTTPException(status_code=404, detail="/ Not Found")
 
+
+app.include_router(api_router)
 
 # CRUD Router
 app.include_router(OrmarCRUDRouter(Task, create_schema=CreateTask, tags=["crud"]))
