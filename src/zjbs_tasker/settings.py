@@ -17,5 +17,8 @@ class Settings(BaseSettings):
     # Redis服务IP和端口
     REDIS_HOST_PORT: str = "localhost:7300"
 
+    # 工作进程目录
+    WORKER_DIR: Path = Path(__file__).parent.parent.parent / "debug_data" / "worker"
+
 
 settings: Settings = Settings()

@@ -7,8 +7,7 @@ from fastapi_crudrouter import OrmarCRUDRouter
 from loguru import logger
 from zjbs_file_client import close_client, init_client
 
-from zjbs_tasker.api.task import router as task_router
-from zjbs_tasker.api.task_template import router as task_template_router
+from zjbs_tasker.api import router as api_router
 from zjbs_tasker.db import Task, TaskRun, TaskTemplate, database
 from zjbs_tasker.model import CreateTask, CreateTaskRun, CreateTaskTemplate
 from zjbs_tasker.settings import settings
@@ -60,8 +59,7 @@ async def index() -> RedirectResponse:
     raise HTTPException(status_code=404, detail="/ Not Found")
 
 
-app.include_router(task_template_router)
-app.include_router(task_router)
+app.include_router(api_router)
 
 # CRUD Router
 app.include_router(OrmarCRUDRouter(Task, create_schema=CreateTask, tags=["crud"]))

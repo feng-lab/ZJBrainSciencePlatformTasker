@@ -57,9 +57,7 @@ class TaskTemplate(Model, ModelMixin):
     # 类型
     type: Type = Enum(enum_class=Type)
     # 可执行文件
-    executable: str = long_string()
-    # 参数
-    argument: Json[list[str]] = JSON()
+    executable: Json[list[str]] = JSON()
     # 环境变量
     environment: Json[dict[str, Any]] = JSON()
 
@@ -71,10 +69,10 @@ class Task(Model, ModelMixin):
 
     # 名称
     name: str = short_string()
-    # 创建者ID
-    creator_id: int = Integer()
-    # 源文件路径
-    source_files: Json[list[str]] = JSON()
+    # 参数
+    argument: Json[list[str]] = JSON()
+    # 环境变量
+    environment: Json[dict[str, Any]] = JSON()
     # 允许重试的次数
     retry_times: int = Integer(minimum=0)
 
@@ -100,6 +98,8 @@ class TaskRun(Model, ModelMixin):
         # 取消
         canceled = "canceled"
 
+    # 序号
+    index: int = Integer()
     # 任务运行状态
     status: Status = Enum(enum_class=Status)
     # 开始时间

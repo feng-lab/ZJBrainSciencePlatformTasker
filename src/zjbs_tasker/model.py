@@ -17,16 +17,15 @@ def long_string():
 class CreateTaskTemplate(BaseModel):
     name: str = short_string()
     type: TaskTemplate.Type
-    executable: str = long_string()
-    argument: list[str]
+    executable: list[str]
     environment: dict[str, Any]
 
 
 class CreateTask(BaseModel):
     template: int
     name: str = short_string()
-    creator_id: int
-    source_files: list[str]
+    argument: list[str]
+    environment: dict[str, Any]
     retry_times: int = Field(ge=0)
 
 

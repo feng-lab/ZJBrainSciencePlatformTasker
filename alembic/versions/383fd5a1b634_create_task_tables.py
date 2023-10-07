@@ -26,8 +26,7 @@ def upgrade() -> None:
         sa.Column("is_deleted", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("type", sa.Enum("executable", "python", name="type"), nullable=False),
-        sa.Column("executable", sa.String(length=65535), nullable=False),
-        sa.Column("argument", sa.JSON(), nullable=False),
+        sa.Column("executable", sa.JSON(), nullable=False),
         sa.Column("environment", sa.JSON(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -38,8 +37,8 @@ def upgrade() -> None:
         sa.Column("modified_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
         sa.Column("is_deleted", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("creator_id", sa.Integer(), nullable=False),
-        sa.Column("source_files", sa.JSON(), nullable=False),
+        sa.Column("argument", sa.JSON(), nullable=False),
+        sa.Column("environment", sa.JSON(), nullable=False),
         sa.Column("retry_times", sa.Integer(), nullable=False),
         sa.Column("template", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(("template",), ["task_template.id"], name="fk_task_task_template_id_template"),
@@ -51,6 +50,7 @@ def upgrade() -> None:
         sa.Column("create_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
         sa.Column("modified_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
         sa.Column("is_deleted", sa.Boolean(), server_default=sa.text("false"), nullable=False),
+        sa.Column("index", sa.Integer(), nullable=False),
         sa.Column(
             "status", sa.Enum("pending", "running", "success", "failed", "canceled", name="status"), nullable=False
         ),
