@@ -1,23 +1,57 @@
+import shutil
+import tarfile
+import tempfile
+import zipfile
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Body, File, Query, UploadFile
+from fastapi import APIRouter, Body, File, Form, Query, UploadFile
 from zjbs_file_client import upload, upload_zip
 
 from zjbs_tasker.db import Task, TaskRun, TaskTemplate
-from zjbs_tasker.model import CreateTask, CreateTaskTemplate
+from zjbs_tasker.model import CompressMethod, CreateTask
 from zjbs_tasker.server import queue
+from zjbs_tasker.util import TASK_TEMPLATE_BASE_DIR, get_task_source_dir
 from zjbs_tasker.worker import execute_task_run
 
 router = APIRouter(tags=["api"])
 
-TASKER_BASE_DIR: str = "/tasker"
-TASK_BASE_DIR: str = f"{TASKER_BASE_DIR}/task"
-TASK_TEMPLATE_BASE_DIR: str = f"{TASKER_BASE_DIR}/template"
-
 
 @router.post("/CreateTaskTemplate", description="创建任务模板")
-async def create_task_template(args: Annotated[CreateTaskTemplate, Body(description="任务模板")]) -> int:
-    task_template = await TaskTemplate.objects.create(**args.dict())
+async def create_task_template(
+    file: Annotated[UploadFile, File(description="任务模板可执行文件")],
+    name: Annotated[str, Form(description="任务模板名称", max_length=255)],
+    template_type: Annotated[TaskTemplate.Type, Form(description="任务模板类型", alias="type")],
+    executable: Annotated[list[str], Form(description="任务模板可执行文件")],
+    environment: Annotated[dict[str, str] | None, Form(description="任务模板环境变量")] = None,
+    compress_method: Annotated[CompressMethod, Form(description="压缩方式")] = CompressMethod.not_compressed,
+) -> int:
+    with (
+        TaskTemplate.Meta.database.transaction(),
+        tempfile.NamedTemporaryFile() as temp_receive_file,
+        tempfile.TemporaryDirectory() as temp_decompress_dir,
+        tempfile.NamedTemporaryFile() as temp_recompressed_file,
+    ):
+        task_template = await TaskTemplate.objects.create(
+            name=name, type=template_type, executable=executable, environment=environment
+        )
+
+        while chunk := file.file.read(1024 * 1024):
+            temp_receive_file.file.write(chunk)
+        if compress_method is not CompressMethod.not_compressed:
+            decompress_file(temp_receive_file.name, compress_method, temp_decompress_dir)
+        else:
+            shutil.move(temp_receive_file.name, temp_decompress_dir)
+        with tarfile.open(temp_recompressed_file.name, "w:xz") as recompressed_file:
+            recompressed_file.add(temp_decompress_dir, arcname=f"{task_template.id}_{task_template.name}")
+        with open(temp_recompressed_file.name, "rb") as temp_recompressed_file_read:
+            await upload(
+                TASK_TEMPLATE_BASE_DIR,
+                temp_recompressed_file_read,
+                f"{task_template.id}_{task_template.name}.tar.xz",
+                mkdir=True,
+                allow_overwrite=False,
+            )
     return task_template.id
 
 
@@ -29,7 +63,7 @@ async def upload_task_template_executable(
     zip_metadata_encoding: Annotated[str | None, Query(description="压缩文件元数据编码")] = None,
 ) -> None:
     task_template = await TaskTemplate.objects.get(id=task_template_id)
-    task_template_dir = get_task_template_dir(task_template=task_template)
+    task_template_dir = get_task_template_dir(task_template.id, task_template.name)
     if is_zipped:
         await upload_zip(
             task_template_dir,
@@ -59,7 +93,7 @@ async def upload_task_source_file(
     zip_metadata_encoding: Annotated[str | None, Query(description="压缩文件元数据编码")] = None,
 ) -> None:
     task = await Task.objects.get(id=task_id)
-    task_source_dir = get_task_source_dir(task=task)
+    task_source_dir = get_task_source_dir(task.id, task.name)
     if is_zipped:
         await upload_zip(
             task_source_dir,
@@ -73,42 +107,21 @@ async def upload_task_source_file(
         await upload(task_source_dir, file.file, file.filename, mkdir=True, allow_overwrite=False)
 
 
-def get_task_template_dir(
-    *,
-    task_template: TaskTemplate | None = None,
-    task_template_id: int | None = None,
-    task_template_name: str | None = None,
-) -> str:
-    if task_template:
-        task_template_id, task_template_name = task_template.id, task_template.name
-    return f"{TASK_TEMPLATE_BASE_DIR}/{task_template_id}_{task_template_name}"
-
-
-def get_task_dir(*, task: Task | None = None, task_id: int | None = None, task_name: str | None = None) -> str:
-    if task:
-        task_id, task_name = task.id, task.name
-    return f"{TASK_BASE_DIR}/{task_id}_{task_name}"
-
-
-def get_task_source_dir(*, task: Task | None = None, task_id: int | None = None, task_name: str | None = None) -> str:
-    task_dir = get_task_dir(task=task, task_id=task_id, task_name=task_name)
-    return f"{task_dir}/source"
-
-
-def get_task_run_dir(
-    *,
-    task: Task | None = None,
-    task_run: TaskRun | None = None,
-    task_id: int | None = None,
-    task_name: str | None = None,
-    task_run_index: int | None = None,
-) -> str:
-    task_dir = get_task_dir(task=task, task_id=task_id, task_name=task_name)
-    if task_run:
-        task_run_index = task_run.index
-    return f"{task_dir}/run_{task_run_index}"
-
-
 async def start_run_task(task_id: int, index: int = 1) -> None:
     task_run = await TaskRun.objects.create(task=task_id, index=index, status=TaskRun.Status.pending)
     queue.enqueue(execute_task_run, task_run.id)
+
+
+def decompress_file(
+    file_path: Path | str, compress_method: CompressMethod, target_parent_directory: Path | str
+) -> None:
+    target_parent_directory.mkdir(parents=True, exist_ok=True)
+    match compress_method:
+        case CompressMethod.zip:
+            with zipfile.ZipFile(file_path, "r") as zip_file:
+                zip_file.extractall(target_parent_directory)
+        case CompressMethod.tgz | CompressMethod.txz:
+            with tarfile.open(file_path, "r:gz" if compress_method is CompressMethod.tgz else "r:xz") as tar_file:
+                tar_file.extractall(target_parent_directory)
+        case CompressMethod.not_compressed:
+            raise ValueError("cannot decompress not compressed file")

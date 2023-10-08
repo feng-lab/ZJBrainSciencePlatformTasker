@@ -14,7 +14,7 @@ dependencies = [
     "fastapi-crudrouter>=0.8.6",
     "rq>=1.15.1",
     "httpx>=0.25.0",
-    "zjbs-file-client==0.2.0",
+    "zjbs-file-client==0.3.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.11"

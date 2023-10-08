@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -12,6 +13,13 @@ def short_string():
 
 def long_string():
     return Field(max_length=65535)
+
+
+class CompressMethod(StrEnum):
+    not_compressed = "not_compressed"
+    zip = "zip"
+    tgz = "tgz"
+    txz = "txz"
 
 
 class CreateTaskTemplate(BaseModel):
