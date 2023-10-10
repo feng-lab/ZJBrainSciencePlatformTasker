@@ -1,8 +1,6 @@
 import shutil
 import tarfile
 import uuid
-import zipfile
-from pathlib import Path
 from typing import Annotated, BinaryIO
 
 from fastapi import APIRouter, Body, File, Form, UploadFile
@@ -12,7 +10,7 @@ from zjbs_tasker.db import Task, TaskRun, TaskTemplate
 from zjbs_tasker.model import BaseTaskRun, CompressMethod, CreateTask, CreateTaskTemplate
 from zjbs_tasker.server import queue
 from zjbs_tasker.settings import settings
-from zjbs_tasker.util import TASK_BASE_DIR, TASK_TEMPLATE_BASE_DIR
+from zjbs_tasker.util import TASK_BASE_DIR, TASK_TEMPLATE_BASE_DIR, decompress_file
 from zjbs_tasker.worker import execute_task_run
 
 router = APIRouter(tags=["api"])
@@ -101,21 +99,6 @@ async def upload_file(
             )
     finally:
         shutil.rmtree(tmp_working_dir, ignore_errors=True)
-
-
-def decompress_file(
-    file_path: Path | str, compress_method: CompressMethod, target_parent_directory: Path | str
-) -> None:
-    target_parent_directory.mkdir(parents=True, exist_ok=True)
-    match compress_method:
-        case CompressMethod.zip:
-            with zipfile.ZipFile(file_path, "r") as zip_file:
-                zip_file.extractall(target_parent_directory)
-        case CompressMethod.tgz | CompressMethod.txz:
-            with tarfile.open(file_path, "r:gz" if compress_method is CompressMethod.tgz else "r:xz") as tar_file:
-                tar_file.extractall(target_parent_directory)
-        case CompressMethod.not_compressed:
-            raise ValueError("cannot decompress not compressed file")
 
 
 async def start_run_task(task_id: int, index: int = 1) -> None:
