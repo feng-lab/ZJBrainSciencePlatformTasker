@@ -9,7 +9,7 @@ from fastapi import APIRouter, Body, File, Form, UploadFile
 from zjbs_file_client import upload
 
 from zjbs_tasker.db import Task, TaskRun, TaskTemplate
-from zjbs_tasker.model import CompressMethod, CreateTask, CreateTaskTemplate
+from zjbs_tasker.model import BaseTaskRun, CompressMethod, CreateTask, CreateTaskTemplate
 from zjbs_tasker.server import queue
 from zjbs_tasker.settings import settings
 from zjbs_tasker.util import TASK_BASE_DIR, TASK_TEMPLATE_BASE_DIR
@@ -30,7 +30,7 @@ async def upload_task_template_executable(
     file: Annotated[UploadFile, File(description="任务模板可执行文件")],
     compress_method: Annotated[CompressMethod, Form(description="压缩方式")] = CompressMethod.not_compressed,
 ) -> None:
-    task_template = await TaskTemplate.objects.get(id=task_template_id)
+    task_template = await TaskTemplate.objects.get(id=task_template_id, is_deleted=False)
     await upload_file(
         file.file, file.filename, compress_method, TASK_TEMPLATE_BASE_DIR, f"{task_template.id}_{task_template.name}"
     )
@@ -48,9 +48,25 @@ async def upload_task_source_file(
     file: Annotated[UploadFile, File(description="任务源文件")],
     compress_method: Annotated[CompressMethod, Form(description="压缩方式")] = CompressMethod.not_compressed,
 ) -> None:
-    task = await Task.objects.get(id=task_id)
+    task = await Task.objects.get(id=task_id, is_deleted=False)
     task_basename = f"{task.id}_{task.name}"
     await upload_file(file.file, file.filename, compress_method, f"{TASK_BASE_DIR}/{task_basename}", "source")
+
+
+@router.post("/StartTask", description="开始任务")
+async def start_task(task_id: Annotated[int, Body(description="任务ID")]) -> None:
+    task = await Task.objects.get(id=task_id)
+    await start_run_task(task.id)
+
+
+@router.post("/ListTaskRuns", description="列出任务运行记录", response_model_exclude={"task"})
+async def list_task_runs(task_id: int) -> list[BaseTaskRun]:
+    task = await Task.objects.select_related("runs").get(id=task_id, is_deleted=False)
+    return [
+        BaseTaskRun(task=task.id, status=task_run.status, start_at=task_run.start_at, end_at=task_run.end_at)
+        for task_run in task.runs
+        if not task_run.is_deleted
+    ]
 
 
 async def upload_file(

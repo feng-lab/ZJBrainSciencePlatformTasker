@@ -37,7 +37,7 @@ class CreateTask(BaseModel):
     retry_times: int = Field(ge=0)
 
 
-class CreateTaskRun(BaseModel):
+class BaseTaskRun(BaseModel):
     task: int
     status: TaskRun.Status
     start_at: datetime | None = None

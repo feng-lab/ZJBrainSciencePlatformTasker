@@ -1,15 +1,16 @@
 import sys
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi_crudrouter import OrmarCRUDRouter
 from loguru import logger
+from ormar import NoMatch
 from zjbs_file_client import close_client, init_client
 
 from zjbs_tasker.api import router as api_router
 from zjbs_tasker.db import Task, TaskRun, TaskTemplate, database
-from zjbs_tasker.model import CreateTask, CreateTaskRun, CreateTaskTemplate
+from zjbs_tasker.model import BaseTaskRun, CreateTask, CreateTaskTemplate
 from zjbs_tasker.settings import settings
 
 app: FastAPI = FastAPI(title="ZJBrainSciencePlatform Tasker", description="之江实验室 Brain Science 平台任务平台")
@@ -64,4 +65,9 @@ app.include_router(api_router)
 # CRUD Router
 app.include_router(OrmarCRUDRouter(Task, create_schema=CreateTask, tags=["crud"]))
 app.include_router(OrmarCRUDRouter(TaskTemplate, create_schema=CreateTaskTemplate, tags=["crud"]))
-app.include_router(OrmarCRUDRouter(TaskRun, create_schema=CreateTaskRun, tags=["crud"]))
+app.include_router(OrmarCRUDRouter(TaskRun, create_schema=BaseTaskRun, tags=["crud"]))
+
+
+@app.exception_handler(NoMatch)
+def handle_no_match(_request: Request, exception: NoMatch) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": "Not Found", "exception": str(exception)})
