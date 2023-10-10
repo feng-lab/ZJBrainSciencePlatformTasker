@@ -111,3 +111,8 @@ class TaskRun(Model, ModelMixin):
     task: Task = ForeignKey(
         Task, related_name="runs", onupdate=ReferentialAction.CASCADE, ondelete=ReferentialAction.CASCADE
     )
+
+
+if settings.DEBUG_MODE:
+    engine = sqlalchemy.create_engine(settings.DATABASE_URL)
+    metadata.create_all(engine)

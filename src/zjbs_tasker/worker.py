@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
-from zjbs_file_client import close_client, download_directory, init_client
+from zjbs_file_client import close_client, init_client
 
 from zjbs_tasker.db import Task, TaskRun, TaskTemplate
 from zjbs_tasker.settings import settings
@@ -54,10 +54,8 @@ async def file_client() -> None:
 
 
 async def download_executable(task_template: TaskTemplate) -> None:
-    template_dir = settings.WORKER_DIR / "template"
+    template_dir = settings.WORKER_WORKING_DIR / "template"
     template_dir.mkdir(parents=True, exist_ok=True)
-
-    await download_directory()
 
 
 async def download_source_files(task: Task) -> None:
@@ -73,6 +71,6 @@ async def upload_result_file(task_run: TaskRun) -> None:
 
 
 def get_local_template_dir(task_template_id: int, task_template_name: str) -> Path:
-    template_dir = settings.WORKER_DIR / "template" / f"{task_template_id}_{task_template_name}"
+    template_dir = settings.WORKER_WORKING_DIR / "template" / f"{task_template_id}_{task_template_name}"
     template_dir.mkdir(parents=True, exist_ok=True)
     return template_dir
