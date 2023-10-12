@@ -34,11 +34,12 @@ class CreateTask(BaseModel):
     name: str = short_string()
     argument: list[str]
     environment: dict[str, Any]
-    retry_times: int = Field(ge=0)
+    retry_times: int = Field(0, ge=0)
 
 
 class BaseTaskRun(BaseModel):
     task: int
+    index: int = Field(ge=0)
     status: TaskRun.Status
     start_at: datetime | None = None
     end_at: datetime | None = None

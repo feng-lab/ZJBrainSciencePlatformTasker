@@ -1,5 +1,6 @@
 import asyncio
 import shutil
+import tempfile
 from asyncio import TaskGroup
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -11,7 +12,7 @@ from zjbs_file_client import close_client, download_file, init_client, upload_di
 from zjbs_tasker.db import TaskRun
 from zjbs_tasker.model import CompressMethod
 from zjbs_tasker.settings import settings
-from zjbs_tasker.util import decompress_file, get_task_dir, get_task_template_dir
+from zjbs_tasker.util import decompress_file, get_task_dir, get_task_source_file_pack, get_task_template_pack
 
 
 def execute_task_run(task_run_id: int) -> None:
@@ -21,19 +22,21 @@ def execute_task_run(task_run_id: int) -> None:
 async def async_execute_task_run(task_run_id: int) -> None:
     async with connect_database(), file_client():
         task_run: TaskRun = await TaskRun.objects.get(id=task_run_id)
-        task_run.status = TaskRun.Status.running
-        task_run.start_at = datetime.now()
-        await task_run.save()
+        await task_run.update(status=TaskRun.Status.running, start_at=datetime.now())
 
+        await task_run.load_all(follow=True)
         async with TaskGroup() as tg:
             tg.create_task(download_executable(task_run.task.template.id, task_run.task.template.name))
-            tg.create_task(download_source_file(task_run.task.id, task_run.task.name))
+            tg.create_task(download_source_file(task_run))
         return_code = await execute_external_executable(task_run)
-        task_run.end_at = datetime.now()
+        end_at = datetime.now()
         await upload_result_file(task_run)
 
-        task_run.status = TaskRun.Status.success if return_code == 0 else TaskRun.Status.failed
-        await task_run.save()
+        await task_run.update(
+            status=TaskRun.Status.success if return_code == 0 else TaskRun.Status.failed, end_at=end_at
+        )
+        if return_code == 0:
+            shutil.rmtree(worker_task_source_dir(task_run), ignore_errors=True)
 
 
 @asynccontextmanager
@@ -58,53 +61,52 @@ async def file_client() -> None:
 
 
 async def download_executable(template_id: int, template_name: str) -> None:
-    template_dir = settings.WORKER_WORKING_DIR / "template"
-    template_dir.mkdir(parents=True, exist_ok=True)
-
-    # 避免重复下载
-    template_basename = f"{template_id}_{template_name}"
-    template_target_dir = template_dir / template_basename
-    if template_target_dir.is_dir() and any(template_target_dir.iterdir()):
-        return
-
-    template_xz_path = template_dir / f"{template_basename}.tar.xz"
-    await download_file(get_task_template_dir(template_id, template_name), template_xz_path)
-    decompress_file(template_xz_path, CompressMethod.txz, template_dir)
-    template_xz_path.unlink()
+    await download_pack_and_extract_as_dir(
+        get_task_template_pack(template_id, template_name),
+        settings.WORKER_WORKING_DIR / "template",
+        f"{template_id}_{template_name}",
+    )
 
 
-async def download_source_file(task_id: int, task_name: str) -> None:
-    task_dir = settings.WORKER_WORKING_DIR / "task"
-    task_dir.mkdir(parents=True, exist_ok=True)
+async def download_source_file(task_run: TaskRun) -> None:
+    await download_pack_and_extract_as_dir(
+        get_task_source_file_pack(task_run.task.id, task_run.task.name),
+        worker_task_dir(task_run),
+        "source",
+    )
 
-    # 避免重复下载
-    task_basename = f"{task_id}_{task_name}"
-    task_target_dir = task_dir / task_basename
-    if task_target_dir.is_dir() and any(task_target_dir.iterdir()):
-        return
 
-    source_file_xz_path = task_dir / f"{task_basename}.tar.xz"
-    await download_file(get_task_dir(task_id, task_name), source_file_xz_path)
-    decompress_file(source_file_xz_path, CompressMethod.txz, task_dir)
-    source_file_xz_path.unlink()
+async def download_pack_and_extract_as_dir(
+    server_path: str, target_parent_dir: Path, dedup_name: str | None = None
+) -> bool:
+    target_parent_dir.mkdir(parents=True, exist_ok=True)
+    if dedup_name is not None:
+        dedup_path = target_parent_dir / dedup_name
+        if dedup_path.is_dir() and any(dedup_path.iterdir()):
+            return False
+
+    with tempfile.SpooledTemporaryFile() as pack_file:
+        await download_file(server_path, pack_file)
+        pack_file.seek(0)
+        decompress_file(pack_file, CompressMethod.txz, target_parent_dir)
+        return True
 
 
 async def execute_external_executable(task_run: TaskRun) -> int:
     run_dir = worker_task_run_dir(task_run)
-    logger.add(run_dir / "worker.log", level="INFO")
+    worker_logger_id = logger.add(run_dir / "worker.log", level="INFO")
 
     with (
-        open(run_dir / "stdout", "wt", encoding="utf-8") as stdout_log,
-        open(run_dir / "stderr", "wt", encoding="utf-8") as stderr_log,
+        open(run_dir / "stdout.txt", "wt", encoding="utf-8") as stdout_log,
+        open(run_dir / "stderr.txt", "wt", encoding="utf-8") as stderr_log,
     ):
-        executable = str(
-            settings.WORKER_WORKING_DIR
-            / "template"
-            / f"{task_run.task.template.id}_{task_run.task.template.name}"
-            / task_run.task.template.executable[0]
-        )
+        executable = worker_executable(task_run)
         args = task_run.task.template.executable[1:] + task_run.task.argument
-        env = {"OUTPUT_DIR": str(run_dir)} | task_run.task.template.environment | task_run.task.environment
+        env = (
+            {"OUTPUT_DIR": str(run_dir), "INPUT_DIR": str(run_dir.parent / "source")}
+            | task_run.task.template.environment
+            | task_run.task.environment
+        )
         logger.info(f"{executable=}, {args=}, {env=}")
 
         work_process = await asyncio.create_subprocess_exec(
@@ -113,6 +115,7 @@ async def execute_external_executable(task_run: TaskRun) -> int:
         stdout, stderr = await work_process.communicate()
         stderr_log.write(stderr.decode("utf-8"))
         stdout_log.write(stdout.decode("utf-8"))
+        logger.remove(worker_logger_id)
         return work_process.returncode
 
 
@@ -122,15 +125,25 @@ async def upload_result_file(task_run: TaskRun) -> None:
     shutil.rmtree(run_dir, ignore_errors=True)
 
 
-def worker_task_run_dir(task_run):
-    run_dir = (
-        settings.WORKER_WORKING_DIR / "task" / f"{task_run.task.id}_{task_run.task.name}" / f"run_{task_run.index}"
-    )
-    run_dir.mkdir(parents=True, exist_ok=True)
-    return run_dir
+def worker_task_dir(task_run: TaskRun) -> Path:
+    return settings.WORKER_WORKING_DIR / "task" / f"{task_run.task.id}_{task_run.task.name}"
+
+
+def worker_task_run_dir(task_run: TaskRun) -> Path:
+    return worker_task_dir(task_run) / f"run_{task_run.index}"
+
+
+def worker_task_source_dir(task_run: TaskRun) -> Path:
+    return worker_task_dir(task_run) / "source"
 
 
 def worker_template_dir(task_template_id: int, task_template_name: str) -> Path:
-    template_dir = settings.WORKER_WORKING_DIR / "template" / f"{task_template_id}_{task_template_name}"
-    template_dir.mkdir(parents=True, exist_ok=True)
-    return template_dir
+    return settings.WORKER_WORKING_DIR / "template" / f"{task_template_id}_{task_template_name}"
+
+
+def worker_executable(task_run: TaskRun) -> str:
+    exe_path = (
+        settings.WORKER_WORKING_DIR / "template" / f"{task_run.task.template.id}_{task_run.task.template.name}"
+        / task_run.task.template.executable[0]
+    )
+    return str(exe_path)
