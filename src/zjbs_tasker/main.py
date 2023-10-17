@@ -5,12 +5,11 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi_crudrouter import OrmarCRUDRouter
 from loguru import logger
-from ormar import NoMatch
+from ormar import Model, NoMatch
 from zjbs_file_client import close_client, init_client
 
 from zjbs_tasker.api import router as api_router
-from zjbs_tasker.db import Task, TaskRun, TaskTemplate, database
-from zjbs_tasker.model import BaseTaskRun, CreateTask, CreateTaskTemplate
+from zjbs_tasker.db import Task, TaskInterpreter, TaskRun, TaskTemplate, database
 from zjbs_tasker.settings import settings
 
 app: FastAPI = FastAPI(title="ZJBrainSciencePlatform Tasker", description="之江实验室 Brain Science 平台任务平台")
@@ -44,7 +43,7 @@ async def disconnect_database() -> None:
 # 文件服务客户端
 @app.on_event("startup")
 async def start_file_client() -> None:
-    await init_client(settings.FILE_SERVICE_URL, timeout=60)
+    await init_client(settings.FILE_SERVER_URL, timeout=60)
 
 
 @app.on_event("shutdown")
@@ -62,10 +61,26 @@ async def index() -> RedirectResponse:
 
 app.include_router(api_router)
 
+
 # CRUD Router
-app.include_router(OrmarCRUDRouter(Task, create_schema=CreateTask, tags=["crud"]))
-app.include_router(OrmarCRUDRouter(TaskTemplate, create_schema=CreateTaskTemplate, tags=["crud"]))
-app.include_router(OrmarCRUDRouter(TaskRun, create_schema=BaseTaskRun, tags=["crud"]))
+def crud_router(model: type[Model], *include: str) -> None:
+    create_update_schema = model.get_pydantic(include=set(include))
+    # noinspection PyTypeChecker
+    app.include_router(
+        OrmarCRUDRouter(
+            model,
+            prefix=model.__name__,
+            create_schema=create_update_schema,
+            update_schema=create_update_schema,
+            tags=["CRUD"],
+        )
+    )
+
+
+crud_router(TaskInterpreter, "name", "type")
+crud_router(TaskTemplate, "interpreter", "name", "description", "executable", "environment")
+crud_router(Task, "template", "name", "argument", "environment", "retry_times")
+crud_router(TaskRun, "task", "index", "status", "start_at", "end_at")
 
 
 @app.exception_handler(NoMatch)

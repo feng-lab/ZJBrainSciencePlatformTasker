@@ -54,7 +54,7 @@ async def connect_database() -> None:
 @asynccontextmanager
 async def file_client() -> None:
     try:
-        await init_client(settings.FILE_SERVICE_URL, timeout=60)
+        await init_client(settings.FILE_SERVER_URL, timeout=60)
         yield
     finally:
         await close_client()

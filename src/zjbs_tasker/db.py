@@ -5,7 +5,7 @@ from typing import Any
 import databases
 import sqlalchemy
 from databases import Database
-from ormar import JSON, Boolean, DateTime, Enum, ForeignKey, Integer, Model, ModelMeta, ReferentialAction, String
+from ormar import Boolean, DateTime, Enum, ForeignKey, Integer, JSON, Model, ModelMeta, String, Text
 from pydantic import Json
 from sqlalchemy import MetaData, func
 from sqlalchemy.sql import expression
@@ -40,26 +40,40 @@ class ModelMixin:
     is_deleted: bool = Boolean(server_default=expression.false())
 
 
-# 任务模板
-class TaskTemplate(Model, ModelMixin):
+# 任务可执行文件的解释器
+class TaskInterpreter(Model, ModelMixin):
     class Meta(BaseMeta):
-        tablename = "task_template"
+        tablename = "task_interpreter"
 
-    # 允许的任务类型
+    # 允许的解释器类型
     class Type(StrEnum):
-        # 可执行文件
-        executable = "executable"
         # Python脚本或模块
         python = "python"
+        # Node.js脚本
+        nodejs = "nodejs"
 
     # 名称
     name: str = short_string()
     # 类型
     type: Type = Enum(enum_class=Type)
+
+
+# 任务模板
+class TaskTemplate(Model, ModelMixin):
+    class Meta(BaseMeta):
+        tablename = "task_template"
+
+    # 名称
+    name: str = short_string()
+    # 描述
+    description: str = Text()
     # 可执行文件
     executable: Json[list[str]] = JSON()
     # 环境变量
     environment: Json[dict[str, Any]] = JSON()
+
+    # 解释器
+    interpreter: TaskInterpreter | None = ForeignKey(TaskInterpreter, related_name="templates", nullable=True)
 
 
 # 任务
@@ -77,7 +91,7 @@ class Task(Model, ModelMixin):
     retry_times: int = Integer(minimum=0)
 
     # 模板
-    template: TaskTemplate = ForeignKey(TaskTemplate)
+    template: TaskTemplate = ForeignKey(TaskTemplate, related_name="tasks", nullable=False)
 
 
 # 任务的一次运行
@@ -108,11 +122,10 @@ class TaskRun(Model, ModelMixin):
     end_at: datetime | None = DateTime(nullable=True)
 
     # 任务
-    task: Task = ForeignKey(
-        Task, related_name="runs", onupdate=ReferentialAction.CASCADE, ondelete=ReferentialAction.CASCADE
-    )
+    task: Task = ForeignKey(Task, related_name="runs", nullable=False)
 
 
-if settings.DEBUG_MODE:
-    engine = sqlalchemy.create_engine(settings.DATABASE_URL)
+if __name__ == "__main__":
+    engine = sqlalchemy.create_engine(settings.DATABASE_URL, echo=True)
+    metadata.drop_all(engine)
     metadata.create_all(engine)
