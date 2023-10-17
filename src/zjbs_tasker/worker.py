@@ -15,11 +15,11 @@ from zjbs_tasker.settings import settings
 from zjbs_tasker.util import decompress_file, get_task_dir, get_task_source_file_pack, get_task_template_pack
 
 
-def execute_task_run(task_run_id: int) -> None:
-    asyncio.run(async_execute_task_run(task_run_id))
+def sync_execute_task_run(task_run_id: int) -> None:
+    asyncio.run(execute_task_run(task_run_id))
 
 
-async def async_execute_task_run(task_run_id: int) -> None:
+async def execute_task_run(task_run_id: int) -> None:
     async with connect_database(), file_client():
         task_run: TaskRun = await TaskRun.objects.get(id=task_run_id)
         await task_run.update(status=TaskRun.Status.running, start_at=datetime.now())
@@ -70,9 +70,7 @@ async def download_executable(template_id: int, template_name: str) -> None:
 
 async def download_source_file(task_run: TaskRun) -> None:
     await download_pack_and_extract_as_dir(
-        get_task_source_file_pack(task_run.task.id, task_run.task.name),
-        worker_task_dir(task_run),
-        "source",
+        get_task_source_file_pack(task_run.task.id, task_run.task.name), worker_task_dir(task_run), "source"
     )
 
 
@@ -94,6 +92,7 @@ async def download_pack_and_extract_as_dir(
 
 async def execute_external_executable(task_run: TaskRun) -> int:
     run_dir = worker_task_run_dir(task_run)
+    run_dir.mkdir(parents=True, exist_ok=True)
     worker_logger_id = logger.add(run_dir / "worker.log", level="INFO")
 
     with (
@@ -143,7 +142,9 @@ def worker_template_dir(task_template_id: int, task_template_name: str) -> Path:
 
 def worker_executable(task_run: TaskRun) -> str:
     exe_path = (
-        settings.WORKER_WORKING_DIR / "template" / f"{task_run.task.template.id}_{task_run.task.template.name}"
+        settings.WORKER_WORKING_DIR
+        / "template"
+        / f"{task_run.task.template.id}_{task_run.task.template.name}"
         / task_run.task.template.executable[0]
     )
     return str(exe_path)

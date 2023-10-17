@@ -1,9 +1,14 @@
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from rq import Worker
+from rq.job import JobStatus
+
+from zjbs_tasker.server import queue
+from zjbs_tasker.worker import execute_task_run
 
 
-def test_worker(client: TestClient) -> int:
+def test_worker(client: TestClient, rq_worker: Worker) -> None:
     response = client.post(
         "/CreateTaskTemplate",
         json={"name": "test-worker", "type": "executable", "executable": ["copy.exe"], "environment": {}},
@@ -38,6 +43,8 @@ def test_worker(client: TestClient) -> int:
     response = client.post("/task_run", json={"task": task_id, "status": "pending", "index": 0})
     assert response.is_success
     task_run_id = response.json()["id"]
+    print(f"{task_run_id=}")
 
-    # execute_task_run(task_run_id)
-    return task_run_id
+    job = queue.enqueue_call(execute_task_run, [task_run_id], timeout=10)
+    rq_worker.work(burst=True)
+    assert job.get_status(refresh=True) == JobStatus.FINISHED
