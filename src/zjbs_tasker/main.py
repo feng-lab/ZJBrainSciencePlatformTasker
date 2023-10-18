@@ -1,3 +1,4 @@
+import logging
 import sys
 
 from fastapi import FastAPI, HTTPException, Request
@@ -25,6 +26,8 @@ logger.add(
 )
 if settings.DEBUG_MODE:
     logger.add(sys.stdout, level="DEBUG", format=LOG_FORMAT, diagnose=True, enqueue=True)
+    logging.basicConfig()
+    logging.getLogger("databases").setLevel(logging.DEBUG)
 
 
 # 数据库
@@ -77,7 +80,7 @@ def crud_router(model: type[Model], *include: str) -> None:
     )
 
 
-crud_router(TaskInterpreter, "name", "type")
+crud_router(TaskInterpreter, "name", "type", "executable")
 crud_router(TaskTemplate, "interpreter", "name", "description", "executable", "environment")
 crud_router(Task, "template", "name", "argument", "environment", "retry_times")
 crud_router(TaskRun, "task", "index", "status", "start_at", "end_at")

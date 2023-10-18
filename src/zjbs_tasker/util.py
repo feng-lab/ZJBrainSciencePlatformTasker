@@ -34,6 +34,7 @@ def decompress_file(
     compress_method: CompressMethod,
     target_parent_directory: Path | str,
 ) -> None:
+    target_parent_directory = Path(target_parent_directory)
     target_parent_directory.mkdir(parents=True, exist_ok=True)
     match compress_method:
         case CompressMethod.zip:

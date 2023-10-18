@@ -1,5 +1,15 @@
 BEGIN;
 
+-- 删除之前的类型和表
+
+DROP TABLE IF EXISTS task_run;
+DROP TABLE IF EXISTS task;
+DROP TABLE IF EXISTS task_template;
+DROP TABLE IF EXISTS task_interpreter;
+
+DROP TYPE IF EXISTS Status;
+DROP TYPE IF EXISTS Type;
+
 -- 创建枚举类型
 
 CREATE TYPE Type AS ENUM ('python', 'nodejs');
@@ -16,6 +26,7 @@ CREATE TABLE task_interpreter
     is_deleted  BOOLEAN                     NOT NULL DEFAULT FALSE,
     name        VARCHAR(255) NOT NULL,
     type        Type         NOT NULL,
+    executable JSON NOT NULL,
     PRIMARY KEY (id)
 );
 

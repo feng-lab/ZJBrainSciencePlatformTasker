@@ -1,9 +1,13 @@
+import asyncio
 from datetime import datetime
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
+import asyncpg
 import databases
 import sqlalchemy
+from asyncpg import Connection
 from databases import Database
 from ormar import Boolean, DateTime, Enum, ForeignKey, Integer, JSON, Model, ModelMeta, String, Text
 from pydantic import Json
@@ -56,6 +60,8 @@ class TaskInterpreter(Model, ModelMixin):
     name: str = short_string()
     # 类型
     type: Type = Enum(enum_class=Type)
+    # 可执行文件
+    executable: Json[list[str]] = JSON()
 
 
 # 任务模板
@@ -125,7 +131,16 @@ class TaskRun(Model, ModelMixin):
     task: Task = ForeignKey(Task, related_name="runs", nullable=False)
 
 
+async def run_pg_script(path: Path | str) -> None:
+    connection: Connection | None = None
+    try:
+        connection = await asyncpg.connect(settings.DATABASE_URL)
+        await connection.execute(path.read_text(encoding="UTF-8"))
+    finally:
+        if connection and not connection.is_closed():
+            await connection.close()
+
+
 if __name__ == "__main__":
-    engine = sqlalchemy.create_engine(settings.DATABASE_URL, echo=True)
-    metadata.drop_all(engine)
-    metadata.create_all(engine)
+    create_all_script = Path(__file__).parent.parent.parent / "alembic" / "sql" / "create_all.sql"
+    asyncio.run(run_pg_script(create_all_script))
