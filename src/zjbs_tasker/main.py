@@ -80,8 +80,8 @@ def crud_router(model: type[Model], *include: str) -> None:
     )
 
 
-crud_router(TaskInterpreter, "name", "type", "executable")
-crud_router(TaskTemplate, "interpreter", "name", "description", "executable", "environment")
+crud_router(TaskInterpreter, "name", 'is_external', "type", "executable", "environment")
+crud_router(TaskTemplate, "interpreter", "name", "description", "argument", "environment")
 crud_router(Task, "template", "name", "argument", "environment", "retry_times")
 crud_router(TaskRun, "task", "index", "status", "start_at", "end_at")
 

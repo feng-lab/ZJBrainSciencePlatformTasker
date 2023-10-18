@@ -51,6 +51,8 @@ class TaskInterpreter(Model, ModelMixin):
 
     # 允许的解释器类型
     class Type(StrEnum):
+        # 可执行文件
+        executable = "executable"
         # Python脚本或模块
         python = "python"
         # Node.js脚本
@@ -58,10 +60,14 @@ class TaskInterpreter(Model, ModelMixin):
 
     # 名称
     name: str = short_string()
+    # 是否是外部命令
+    is_external: bool = Boolean()
     # 类型
     type: Type = Enum(enum_class=Type)
     # 可执行文件
     executable: Json[list[str]] = JSON()
+    # 环境变量
+    environment: Json[dict[str, Any]] = JSON()
 
 
 # 任务模板
@@ -73,8 +79,8 @@ class TaskTemplate(Model, ModelMixin):
     name: str = short_string()
     # 描述
     description: str = Text()
-    # 可执行文件
-    executable: Json[list[str]] = JSON()
+    # 参数
+    argument: Json[list[str]] = JSON()
     # 环境变量
     environment: Json[dict[str, Any]] = JSON()
 

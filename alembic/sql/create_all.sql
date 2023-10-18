@@ -12,7 +12,7 @@ DROP TYPE IF EXISTS Type;
 
 -- 创建枚举类型
 
-CREATE TYPE Type AS ENUM ('python', 'nodejs');
+CREATE TYPE Type AS ENUM ('executable', 'python', 'nodejs');
 
 CREATE TYPE Status AS ENUM ('pending', 'running', 'success', 'failed', 'canceled');
 
@@ -25,8 +25,10 @@ CREATE TABLE task_interpreter
     modified_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
     is_deleted  BOOLEAN                     NOT NULL DEFAULT FALSE,
     name        VARCHAR(255) NOT NULL,
+    is_external BOOLEAN NOT NULL,
     type        Type         NOT NULL,
     executable JSON NOT NULL,
+    environment JSON    NOT NULL,
     PRIMARY KEY (id)
 );
 
@@ -38,7 +40,7 @@ CREATE TABLE task_template
     is_deleted  BOOLEAN                     DEFAULT FALSE,
     name        VARCHAR(255) NOT NULL,
     description TEXT         NOT NULL,
-    executable  JSON         NOT NULL,
+    argument JSON NOT NULL,
     environment JSON         NOT NULL,
     interpreter INTEGER,
     PRIMARY KEY (id),

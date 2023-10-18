@@ -1,18 +1,19 @@
 import asyncio
+import locale
 import shutil
 import tempfile
-from asyncio import TaskGroup
-from contextlib import asynccontextmanager
+from asyncio import StreamReader, TaskGroup
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
 from zjbs_file_client import close_client, download_file, init_client, upload_directory
 
-from zjbs_tasker.db import TaskRun
+from zjbs_tasker.db import Task, TaskInterpreter, TaskRun, TaskTemplate
 from zjbs_tasker.model import CompressMethod
-from zjbs_tasker.settings import settings
-from zjbs_tasker.util import decompress_file, get_task_dir, get_task_source_file_pack, get_task_template_pack
+from zjbs_tasker.settings import FileServerPath, settings
+from zjbs_tasker.util import decompress_file, get_task_dir
 
 
 def sync_execute_task_run(task_run_id: int) -> None:
@@ -20,21 +21,54 @@ def sync_execute_task_run(task_run_id: int) -> None:
 
 
 async def execute_task_run(task_run_id: int) -> None:
+    # 连接数据库和文件服务器
     async with connect_database(), file_client():
+        # 更新TaskRun状态
         task_run: TaskRun = await TaskRun.objects.get(id=task_run_id)
         await task_run.update(status=TaskRun.Status.running, start_at=datetime.now())
 
-        await task_run.load_all(follow=True)
+        task = await task_run.task.load()
+        task_template = await task.template.load()
+        task_interpreter = task_template.interpreter
+        if task_interpreter is not None:
+            await task_interpreter.load()
+
+        # 并行下载解释器，模板和源文件
         async with TaskGroup() as tg:
-            tg.create_task(download_executable(task_run.task.template.id, task_run.task.template.name))
-            tg.create_task(download_source_file(task_run))
-        return_code = await execute_external_executable(task_run)
+            if task_interpreter is not None:
+                tg.create_task(
+                    download_pack_and_extract_as_dir(
+                        FileServerPath.task_interpreter_path(task_interpreter.id, task_interpreter.name),
+                        settings.WORKER_WORKING_DIR / "interpreter",
+                        f"{task_interpreter.id}_{task_interpreter.name}",
+                    )
+                )
+            tg.create_task(
+                download_pack_and_extract_as_dir(
+                    FileServerPath.task_template_path(task_template.id, task_template.name),
+                    settings.WORKER_WORKING_DIR / "template",
+                    f"{task_template.id}_{task_template.name}",
+                )
+            )
+            tg.create_task(
+                download_pack_and_extract_as_dir(
+                    FileServerPath.task_source_path(task.id, task.name), worker_task_dir(task_run), "source"
+                )
+            )
+
+        # 执行任务
+        return_code = await execute_external_executable(task_run, task, task_template, task_interpreter)
         end_at = datetime.now()
+
+        # 上传结果文件
         await upload_result_file(task_run)
 
+        # 更新TaskRun的状态
         await task_run.update(
             status=TaskRun.Status.success if return_code == 0 else TaskRun.Status.failed, end_at=end_at
         )
+
+        # 如果任务执行成功，删除源文件
         if return_code == 0:
             shutil.rmtree(worker_task_source_dir(task_run), ignore_errors=True)
 
@@ -60,20 +94,6 @@ async def file_client() -> None:
         await close_client()
 
 
-async def download_executable(template_id: int, template_name: str) -> None:
-    await download_pack_and_extract_as_dir(
-        get_task_template_pack(template_id, template_name),
-        settings.WORKER_WORKING_DIR / "template",
-        f"{template_id}_{template_name}",
-    )
-
-
-async def download_source_file(task_run: TaskRun) -> None:
-    await download_pack_and_extract_as_dir(
-        get_task_source_file_pack(task_run.task.id, task_run.task.name), worker_task_dir(task_run), "source"
-    )
-
-
 async def download_pack_and_extract_as_dir(
     server_path: str, target_parent_dir: Path, dedup_name: str | None = None
 ) -> bool:
@@ -90,38 +110,96 @@ async def download_pack_and_extract_as_dir(
         return True
 
 
-async def execute_external_executable(task_run: TaskRun) -> int:
+async def execute_external_executable(
+    task_run: TaskRun, task: Task, task_template: TaskTemplate, task_interpreter: TaskInterpreter | None
+) -> int:
     run_dir = worker_task_run_dir(task_run)
     run_dir.mkdir(parents=True, exist_ok=True)
-    worker_logger_id = logger.add(run_dir / "worker.log", level="INFO")
 
-    with (
-        open(run_dir / "stdout.txt", "wt", encoding="utf-8") as stdout_log,
-        open(run_dir / "stderr.txt", "wt", encoding="utf-8") as stderr_log,
-    ):
-        executable = worker_executable(task_run)
-        args = task_run.task.template.executable[1:] + task_run.task.argument
-        env = (
-            {"OUTPUT_DIR": str(run_dir), "INPUT_DIR": str(run_dir.parent / "source")}
-            | task_run.task.template.environment
-            | task_run.task.environment
-        )
-        logger.info(f"{executable=}, {args=}, {env=}")
+    with context_logger(run_dir / "worker.log", "INFO"):
+        logger.info(f"start execute task run")
 
-        work_process = await asyncio.create_subprocess_exec(
-            executable, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env
+        exe, args = build_command(task, task_template, task_interpreter)
+        env = build_environment(task, task_template, task_interpreter, run_dir)
+        logger.info(f"executable: {exe}")
+        logger.info(f"arguments: {args}")
+        logger.info(f"environment variables: {env}")
+
+        # 运行任务，并把stdout和stderr输出到文件
+        process = await asyncio.create_subprocess_exec(
+            exe, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env, cwd=run_dir
         )
-        stdout, stderr = await work_process.communicate()
-        stderr_log.write(stderr.decode("utf-8"))
-        stdout_log.write(stdout.decode("utf-8"))
-        logger.remove(worker_logger_id)
-        return work_process.returncode
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(pipe_output(process.stdout, run_dir / "stdout.txt"))
+            tg.create_task(pipe_output(process.stderr, run_dir / "stderr.txt"))
+
+        return await process.wait()
+
+
+@contextmanager
+def context_logger(log_path: Path | str, level: int | str) -> None:
+    from loguru import logger
+
+    handle = None
+    try:
+        handle = logger.add(log_path, level=level)
+        yield
+    except Exception as e:
+        logger.exception(e)
+    finally:
+        if handle is not None:
+            logger.remove(handle)
+
+
+def build_command(
+    task: Task, task_template: TaskTemplate, task_interpreter: TaskInterpreter | None
+) -> tuple[str, list[str]]:
+    cmd = []
+    if task_interpreter is not None:
+        cmd.extend(task_interpreter.executable)
+    cmd.extend(task_template.executable)
+    cmd.extend(task.argument)
+
+    # 把可执行文件转换为实际路径
+    if task.template.interpreter is None:
+        exe = str(worker_template_dir(task_template) / cmd[0])
+    else:
+        exe = str(worker_interpreter_dir(task_interpreter) / cmd[0])
+
+    return exe, cmd[1:]
+
+
+def build_environment(
+    task: Task, task_template: TaskTemplate, task_interpreter: TaskInterpreter | None, run_dir: Path | str
+) -> dict[str, str]:
+    run_dir = Path(run_dir).absolute()
+    env = {"INPUT_DIR": str(run_dir.parent / "source"), "OUTPUT_DIR": str(run_dir)}
+    if task_interpreter is not None:
+        env.update(task_interpreter.environment)
+    env.update(task_template.environment)
+    env.update(task.environment)
+    return env
+
+
+async def pipe_output(reader: StreamReader, path: Path | str) -> None:
+    encoding = locale.getencoding()
+    with open(path, "w", encoding="UTF-8") as file:
+        while True:
+            line = await reader.readline()
+            if not line:
+                break
+            file.write(line.decode(encoding))
+            file.flush()
 
 
 async def upload_result_file(task_run: TaskRun) -> None:
     run_dir = worker_task_run_dir(task_run)
     await upload_directory(get_task_dir(task_run.task.id, task_run.task.name), run_dir, CompressMethod.txz, mkdir=True)
     shutil.rmtree(run_dir, ignore_errors=True)
+
+
+def worker_interpreter_dir(task_interpreter: TaskInterpreter) -> Path:
+    return settings.WORKER_WORKING_DIR / "interpreter" / f"{task_interpreter.id}_{task_interpreter.name}"
 
 
 def worker_task_dir(task_run: TaskRun) -> Path:
@@ -136,8 +214,8 @@ def worker_task_source_dir(task_run: TaskRun) -> Path:
     return worker_task_dir(task_run) / "source"
 
 
-def worker_template_dir(task_template_id: int, task_template_name: str) -> Path:
-    return settings.WORKER_WORKING_DIR / "template" / f"{task_template_id}_{task_template_name}"
+def worker_template_dir(task_template: TaskTemplate) -> Path:
+    return settings.WORKER_WORKING_DIR / "template" / f"{task_template.id}_{task_template.name}"
 
 
 def worker_executable(task_run: TaskRun) -> str:
