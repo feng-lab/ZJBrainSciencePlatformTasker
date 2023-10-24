@@ -9,8 +9,7 @@ import databases
 import sqlalchemy
 from asyncpg import Connection
 from databases import Database
-from ormar import Boolean, DateTime, Enum, ForeignKey, Integer, JSON, Model, ModelMeta, String, Text
-from pydantic import Json
+from ormar import JSON, Boolean, DateTime, Enum, ForeignKey, Integer, Model, ModelMeta, String, Text
 from sqlalchemy import MetaData, func
 from sqlalchemy.sql import expression
 
@@ -67,9 +66,9 @@ class TaskInterpreter(Model, ModelMixin):
     # 类型
     type: Type = Enum(enum_class=Type)
     # 可执行文件
-    executable: Json[list[str]] = JSON()
+    executable: list[str] = JSON()
     # 环境变量
-    environment: Json[dict[str, Any]] = JSON()
+    environment: dict[str, Any] = JSON()
 
 
 # 任务模板
@@ -84,9 +83,9 @@ class TaskTemplate(Model, ModelMixin):
     # 是否有脚本
     has_script: bool = Boolean()
     # 参数
-    arguments: Json[list[str]] = JSON()
+    arguments: list[str] = JSON()
     # 环境变量
-    environment: Json[dict[str, Any]] = JSON()
+    environment: dict[str, Any] = JSON()
 
     # 解释器
     interpreter: TaskInterpreter = ForeignKey(TaskInterpreter, related_name="templates")
@@ -104,9 +103,9 @@ class Task(Model, ModelMixin):
     # 是否有源文件
     has_source_file: bool = Boolean()
     # 参数
-    arguments: Json[list[str]] = JSON()
+    arguments: list[str] = JSON()
     # 环境变量
-    environment: Json[dict[str, Any]] = JSON()
+    environment: dict[str, Any] = JSON()
     # 允许重试的次数
     retry_times: int = Integer(minimum=0)
 
