@@ -38,11 +38,11 @@ class FileServerPath:
     TASK_DIR: str = f"{BASE_DIR}/task"
 
     @staticmethod
-    def task_interpreter_path(interpreter_id: int, interpreter_name: str) -> str:
+    def interpreter_executable_path(interpreter_id: int, interpreter_name: str) -> str:
         return f"{FileServerPath.TASK_INTERPRETER_DIR}/{interpreter_id}_{interpreter_name}.txz"
 
     @staticmethod
-    def task_template_path(template_id: int, template_name: str) -> str:
+    def template_script_path(template_id: int, template_name: str) -> str:
         return f"{FileServerPath.TASK_TEMPLATE_DIR}/{template_id}_{template_name}.txz"
 
     @staticmethod
@@ -50,9 +50,9 @@ class FileServerPath:
         return f"{FileServerPath.TASK_DIR}/{task_id}_{task_name}"
 
     @staticmethod
-    def task_source_path(task_id: int, task_name: str) -> str:
+    def task_source_file_path(task_id: int, task_name: str) -> str:
         return f"{FileServerPath.task_dir(task_id, task_name)}/source.txz"
 
     @staticmethod
-    def task_run_dir(task_id: int, task_name: str, task_run_index: int) -> str:
+    def run_dir(task_id: int, task_name: str, task_run_index: int) -> str:
         return f"{FileServerPath.task_dir(task_id, task_name)}/run_{task_run_index}"

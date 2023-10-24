@@ -37,21 +37,21 @@ async def execute_task_run(task_run_id: int) -> None:
             if task_interpreter is not None:
                 tg.create_task(
                     download_pack_and_extract_as_dir(
-                        FileServerPath.task_interpreter_path(task_interpreter.id, task_interpreter.name),
+                        FileServerPath.interpreter_executable_path(task_interpreter.id, task_interpreter.name),
                         settings.WORKER_WORKING_DIR / "interpreter",
                         f"{task_interpreter.id}_{task_interpreter.name}",
                     )
                 )
             tg.create_task(
                 download_pack_and_extract_as_dir(
-                    FileServerPath.task_template_path(task_template.id, task_template.name),
+                    FileServerPath.template_script_path(task_template.id, task_template.name),
                     settings.WORKER_WORKING_DIR / "template",
                     f"{task_template.id}_{task_template.name}",
                 )
             )
             tg.create_task(
                 download_pack_and_extract_as_dir(
-                    FileServerPath.task_source_path(task.id, task.name), worker_task_dir(task_run), "source"
+                    FileServerPath.task_source_file_path(task.id, task.name), worker_task_dir(task_run), "source"
                 )
             )
 
