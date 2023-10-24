@@ -60,8 +60,10 @@ class TaskInterpreter(Model, ModelMixin):
 
     # 名称
     name: str = short_string()
-    # 是否是外部命令
-    is_external: bool = Boolean()
+    # 描述
+    description: str = Text()
+    # 是否有可执行文件
+    has_executable: bool = Boolean()
     # 类型
     type: Type = Enum(enum_class=Type)
     # 可执行文件
@@ -79,13 +81,15 @@ class TaskTemplate(Model, ModelMixin):
     name: str = short_string()
     # 描述
     description: str = Text()
+    # 是否有脚本
+    has_script: bool = Boolean()
     # 参数
-    argument: Json[list[str]] = JSON()
+    arguments: Json[list[str]] = JSON()
     # 环境变量
     environment: Json[dict[str, Any]] = JSON()
 
     # 解释器
-    interpreter: TaskInterpreter | None = ForeignKey(TaskInterpreter, related_name="templates", nullable=True)
+    interpreter: TaskInterpreter = ForeignKey(TaskInterpreter, related_name="templates")
 
 
 # 任务
@@ -95,8 +99,12 @@ class Task(Model, ModelMixin):
 
     # 名称
     name: str = short_string()
+    # 描述
+    description: str = Text()
+    # 是否有源文件
+    has_source_file: bool = Boolean()
     # 参数
-    argument: Json[list[str]] = JSON()
+    arguments: Json[list[str]] = JSON()
     # 环境变量
     environment: Json[dict[str, Any]] = JSON()
     # 允许重试的次数

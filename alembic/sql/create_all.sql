@@ -20,61 +20,58 @@ CREATE TYPE Status AS ENUM ('pending', 'running', 'success', 'failed', 'canceled
 
 CREATE TABLE task_interpreter
 (
-    id          SERIAL       NOT NULL,
-    create_at   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-    modified_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-    is_deleted  BOOLEAN                     NOT NULL DEFAULT FALSE,
-    name        VARCHAR(255) NOT NULL,
-    is_external BOOLEAN NOT NULL,
-    type        Type         NOT NULL,
-    executable JSON NOT NULL,
-    environment JSON    NOT NULL,
-    PRIMARY KEY (id)
+    id             SERIAL PRIMARY KEY,
+    create_at      TIMESTAMP    NOT NULL DEFAULT NOW(),
+    modified_at    TIMESTAMP    NOT NULL DEFAULT NOW(),
+    is_deleted     BOOLEAN      NOT NULL DEFAULT FALSE,
+    name           VARCHAR(255) NOT NULL,
+    description    TEXT         NOT NULL,
+    has_executable BOOLEAN      NOT NULL,
+    type           Type         NOT NULL,
+    executable     JSONB        NOT NULL,
+    environment    JSONB        NOT NULL
 );
 
 CREATE TABLE task_template
 (
-    id          SERIAL       NOT NULL,
-    create_at   TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-    modified_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-    is_deleted  BOOLEAN                     DEFAULT FALSE,
+    id          SERIAL PRIMARY KEY,
+    create_at   TIMESTAMP DEFAULT NOW(),
+    modified_at TIMESTAMP DEFAULT NOW(),
+    is_deleted  BOOLEAN   DEFAULT FALSE,
     name        VARCHAR(255) NOT NULL,
     description TEXT         NOT NULL,
-    argument JSON NOT NULL,
-    environment JSON         NOT NULL,
-    interpreter INTEGER,
-    PRIMARY KEY (id),
-    CONSTRAINT fk_task_template_task_interpreter_id_interpreter FOREIGN KEY (interpreter) REFERENCES task_interpreter (id)
+    has_script  BOOLEAN      NOT NULL,
+    arguments   JSONB        NOT NULL,
+    environment JSONB        NOT NULL,
+    interpreter INTEGER      NOT NULL REFERENCES task_interpreter (id)
 );
 
 CREATE TABLE task
 (
-    id          SERIAL       NOT NULL,
-    create_at   TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-    modified_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-    is_deleted  BOOLEAN                     DEFAULT FALSE,
-    name        VARCHAR(255) NOT NULL,
-    argument    JSON         NOT NULL,
-    environment JSON         NOT NULL,
-    retry_times INTEGER      NOT NULL,
-    template    INTEGER      NOT NULL,
-    PRIMARY KEY (id),
-    CONSTRAINT fk_task_task_template_id_template FOREIGN KEY (template) REFERENCES task_template (id)
+    id              SERIAL PRIMARY KEY,
+    create_at       TIMESTAMP DEFAULT NOW(),
+    modified_at     TIMESTAMP DEFAULT NOW(),
+    is_deleted      BOOLEAN   DEFAULT FALSE,
+    name            VARCHAR(255) NOT NULL,
+    description     TEXT         NOT NULL,
+    has_source_file BOOLEAN      NOT NULL,
+    arguments       JSONB        NOT NULL,
+    environment     JSONB        NOT NULL,
+    retry_times     INTEGER      NOT NULL,
+    template        INTEGER      NOT NULL REFERENCES task_template (id)
 );
 
 CREATE TABLE task_run
 (
-    id          SERIAL  NOT NULL,
-    create_at   TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-    modified_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-    is_deleted  BOOLEAN                     DEFAULT FALSE,
-    index       INTEGER NOT NULL,
-    status      Status  NOT NULL,
-    start_at    TIMESTAMP WITHOUT TIME ZONE,
-    end_at      TIMESTAMP WITHOUT TIME ZONE,
-    task        INTEGER NOT NULL,
-    PRIMARY KEY (id),
-    CONSTRAINT fk_task_run_task_id_task FOREIGN KEY (task) REFERENCES task (id)
+    id          SERIAL PRIMARY KEY,
+    create_at   TIMESTAMP DEFAULT NOW(),
+    modified_at TIMESTAMP DEFAULT NOW(),
+    is_deleted  BOOLEAN   DEFAULT FALSE,
+    index       INTEGER   NOT NULL,
+    status      Status    NOT NULL,
+    start_at    TIMESTAMP NULL,
+    end_at      TIMESTAMP NULL,
+    task        INTEGER   NOT NULL REFERENCES task (id)
 );
 
 -- 自动更新 modified_at 字段
