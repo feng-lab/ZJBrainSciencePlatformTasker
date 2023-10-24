@@ -4,8 +4,36 @@ from fastapi.testclient import TestClient
 from rq import Worker
 from rq.job import JobStatus
 
+from zjbs_tasker.db import TaskInterpreter
 from zjbs_tasker.server import queue
 from zjbs_tasker.worker import execute_task_run
+
+cwd = Path(__file__).parent
+data_dir = cwd / "data"
+
+
+def test_create_task_run(client: TestClient) -> None:
+    response = client.post(
+        "/taskinterpreter",
+        json={
+            "name": "test",
+            "is_external": False,
+            "type": "executable",
+            "executable": '["copy.exe"]',
+            "environment": "{}",
+        },
+    )
+    assert response.is_success
+    task_interpreter = TaskInterpreter(**response.json())
+    assert task_interpreter.id > 0
+
+    with open(data_dir / "copy.zip", "rb") as file:
+        response = client.post(
+            "/UploadTaskInterpreterPack",
+            files={"file": ("copy.zip", file)},
+            data={"task_interpreter_id": task_interpreter.id, "compress_method": "zip"},
+        )
+        assert response.is_success
 
 
 def test_worker(client: TestClient, rq_worker: Worker) -> None:

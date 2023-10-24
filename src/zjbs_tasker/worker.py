@@ -1,8 +1,7 @@
 import asyncio
-import locale
 import shutil
 import tempfile
-from asyncio import StreamReader, TaskGroup
+from asyncio import TaskGroup
 from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +12,7 @@ from zjbs_file_client import close_client, download_file, init_client, upload_di
 from zjbs_tasker.db import Task, TaskInterpreter, TaskRun, TaskTemplate
 from zjbs_tasker.model import CompressMethod
 from zjbs_tasker.settings import FileServerPath, settings
-from zjbs_tasker.util import decompress_file, get_task_dir
+from zjbs_tasker.util import decompress_file
 
 
 def sync_execute_task_run(task_run_id: int) -> None:
@@ -126,14 +125,14 @@ async def execute_external_executable(
         logger.info(f"environment variables: {env}")
 
         # 运行任务，并把stdout和stderr输出到文件
-        process = await asyncio.create_subprocess_exec(
-            exe, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env, cwd=run_dir
-        )
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(pipe_output(process.stdout, run_dir / "stdout.txt"))
-            tg.create_task(pipe_output(process.stderr, run_dir / "stderr.txt"))
-
-        return await process.wait()
+        with (
+            open(run_dir / "stdout.txt", "w", encoding="utf-8") as stdout_file,
+            open(run_dir / "stderr.txt", "w", encoding="utf-8") as stderr_file,
+        ):
+            process = await asyncio.create_subprocess_exec(
+                exe, *args, stdout=stdout_file, stderr=stderr_file, env=env, cwd=run_dir
+            )
+            return await process.wait()
 
 
 @contextmanager
@@ -181,20 +180,11 @@ def build_environment(
     return env
 
 
-async def pipe_output(reader: StreamReader, path: Path | str) -> None:
-    encoding = locale.getencoding()
-    with open(path, "w", encoding="UTF-8") as file:
-        while True:
-            line = await reader.readline()
-            if not line:
-                break
-            file.write(line.decode(encoding))
-            file.flush()
-
-
 async def upload_result_file(task_run: TaskRun) -> None:
     run_dir = worker_task_run_dir(task_run)
-    await upload_directory(get_task_dir(task_run.task.id, task_run.task.name), run_dir, CompressMethod.txz, mkdir=True)
+    await upload_directory(
+        FileServerPath.task_dir(task_run.task.id, task_run.task.name), run_dir, CompressMethod.txz, mkdir=True
+    )
     shutil.rmtree(run_dir, ignore_errors=True)
 
 
