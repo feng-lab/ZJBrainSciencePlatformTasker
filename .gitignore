@@ -11,3 +11,5 @@ wheels/
 
 # 测试数据
 debug_data/
+
+.idea/
