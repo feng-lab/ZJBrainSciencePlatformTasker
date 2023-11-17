@@ -1,0 +1,36 @@
+version: "3.9"
+name: tasker-dev
+
+services:
+  database:
+    image: postgres:16
+    ports:
+      - "7100:5432"
+    environment:
+      - POSTGRES_USER=zjlab
+      - POSTGRES_PASSWORD=zjlab2023
+      - POSTGRES_DB=zjbs-tasker
+    volumes:
+      - ../debug_data/database:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready
+
+  file-server:
+    image: cnife/zjbs-file-server:latest
+    ports:
+      - "7200:80"
+    environment:
+      ZJBS_FILE_FILE_DIR: /data/file
+      ZJBS_FILE_LOG_DIR: /data/log
+    volumes:
+      - ../debug_data/file:/data/file
+      - ../debug_data/log/file-server:/data/log
+    healthcheck:
+      test: curl --fail http://localhost/docs
+
+  queue:
+    image: redis:7
+    ports:
+      - "7300:6379"
+    healthcheck:
+      test: redis-cli ping
