@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, File, Form, UploadFile
 
-from zjbs_tasker.db import Task, TaskRun, TaskTemplate
+from zjbs_tasker.db import Task, TaskRun
 from zjbs_tasker.model import CompressMethod
 from zjbs_tasker.server import queue
 from zjbs_tasker.settings import FileServerPath
@@ -10,22 +10,6 @@ from zjbs_tasker.util import upload_file
 from zjbs_tasker.worker import execute_task_run
 
 router = APIRouter(tags=["api"])
-
-
-@router.post("/UploadTaskTemplateExecutable", description="上传任务模板可执行文件")
-async def upload_task_template_executable(
-    task_template_id: Annotated[int, Form(description="任务模板ID")],
-    file: Annotated[UploadFile, File(description="任务模板可执行文件")],
-    compress_method: Annotated[CompressMethod, Form(description="压缩方式")] = CompressMethod.not_compressed,
-) -> None:
-    task_template = await TaskTemplate.objects.get(id=task_template_id, is_deleted=False)
-    await upload_file(
-        file.file,
-        file.filename,
-        compress_method,
-        FileServerPath.TASK_TEMPLATE_DIR,
-        f"{task_template.id}_{task_template.name}",
-    )
 
 
 @router.post("/UploadTaskSourceFile", description="上传任务源文件")

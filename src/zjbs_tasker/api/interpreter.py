@@ -53,15 +53,15 @@ async def get_task_interpreter(
 async def list_task_interpreters(
     name: Annotated[str | None, Query(alias="name", description="名称")] = None,
     type_: Annotated[TaskInterpreter.Type | None, Query(alias="type", description="类型")] = None,
+    offset: Annotated[int, Query(description="分页偏移量")] = 0,
+    limit: Annotated[int, Query(description="分页大小")] = 10,
 ) -> list[TaskInterpreterResponse]:
-    query = {}
+    query = {"is_deleted": False}
     if name is not None:
         query["name__icontains"] = name
     if type_ is not None:
         query["type"] = type_
-    if not query:
-        raise invalid_request_exception("no query parameter is provided")
-    interpreters: list[TaskInterpreter] = await TaskInterpreter.objects.all(**query, is_deleted=False)
+    interpreters: list[TaskInterpreter] = await TaskInterpreter.objects.offset(offset).limit(limit).all(**query)
     return [TaskInterpreterResponse(**interpreter.dict()) for interpreter in interpreters]
 
 
