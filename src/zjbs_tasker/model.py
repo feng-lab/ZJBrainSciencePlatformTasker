@@ -3,7 +3,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
-from zjbs_tasker.db import TaskRun
+from zjbs_tasker.db import Run
 
 
 def short_string():
@@ -24,6 +24,6 @@ class CompressMethod(StrEnum):
 class BaseTaskRun(BaseModel):
     task: int
     index: int = Field(ge=0)
-    status: TaskRun.Status
+    status: Run.Status
     start_at: datetime | None = None
     end_at: datetime | None = None

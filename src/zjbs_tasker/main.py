@@ -12,7 +12,7 @@ from zjbs_file_client import close_client, init_client
 from zjbs_tasker.api import router as api_router
 from zjbs_tasker.api.interpreter import router as interpreter_router
 from zjbs_tasker.api.template import router as template_router
-from zjbs_tasker.db import Task, TaskRun, database
+from zjbs_tasker.db import Task, Run, database
 from zjbs_tasker.settings import settings
 
 app: FastAPI = FastAPI(title="ZJBrainSciencePlatform Tasker", description="之江实验室 Brain Science 平台任务平台")
@@ -85,7 +85,7 @@ def crud_router(model: type[Model], *include: str) -> None:
 
 
 crud_router(Task, "template", "name", "argument", "environment", "retry_times")
-crud_router(TaskRun, "task", "index", "status", "start_at", "end_at")
+crud_router(Run, "task", "index", "status", "start_at", "end_at")
 
 
 @app.exception_handler(NoMatch)

@@ -11,7 +11,7 @@ services:
       - POSTGRES_PASSWORD=zjlab2023
       - POSTGRES_DB=zjbs-tasker
     volumes:
-      - ../debug_data/database:/var/lib/postgresql/data
+      - pg-data:/var/lib/postgresql/data
     healthcheck:
       test: pg_isready
 
@@ -34,3 +34,6 @@ services:
       - "7300:6379"
     healthcheck:
       test: redis-cli ping
+
+volumes:
+  pg-data:

@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from rq import Worker
 from rq.job import JobStatus
 
-from zjbs_tasker.db import TaskInterpreter
+from zjbs_tasker.db import Interpreter
 from zjbs_tasker.server import queue
 from zjbs_tasker.worker import execute_task_run
 
@@ -24,7 +24,7 @@ def test_create_task_run(client: TestClient) -> None:
         },
     )
     assert response.is_success
-    task_interpreter = TaskInterpreter(**response.json())
+    task_interpreter = Interpreter(**response.json())
     assert task_interpreter.id > 0
 
     with open(data_dir / "copy.zip", "rb") as file:
