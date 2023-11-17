@@ -18,21 +18,21 @@ CREATE TYPE Status AS ENUM ('pending', 'running', 'success', 'failed', 'canceled
 
 -- 创建表
 
-CREATE TABLE task_interpreter
+CREATE TABLE interpreter
 (
-    id             SERIAL PRIMARY KEY,
-    create_at      TIMESTAMP    NOT NULL DEFAULT NOW(),
-    modified_at    TIMESTAMP    NOT NULL DEFAULT NOW(),
-    is_deleted     BOOLEAN      NOT NULL DEFAULT FALSE,
-    name           VARCHAR(255) NOT NULL,
-    description    TEXT         NOT NULL,
-    has_executable BOOLEAN      NOT NULL,
-    type           Type         NOT NULL,
-    executable     JSONB        NOT NULL,
-    environment    JSONB        NOT NULL
+    id              SERIAL PRIMARY KEY,
+    create_at       TIMESTAMP    NOT NULL DEFAULT NOW(),
+    modified_at     TIMESTAMP    NOT NULL DEFAULT NOW(),
+    is_deleted      BOOLEAN      NOT NULL DEFAULT FALSE,
+    name            VARCHAR(255) NOT NULL,
+    description     TEXT         NOT NULL,
+    creator         INTEGER      NOT NULL,
+    type            Type         NOT NULL,
+    executable_path VARCHAR(255) NOT NULL,
+    environment     JSONB        NOT NULL
 );
 
-CREATE TABLE task_template
+CREATE TABLE template
 (
     id          SERIAL PRIMARY KEY,
     create_at   TIMESTAMP DEFAULT NOW(),
@@ -40,10 +40,10 @@ CREATE TABLE task_template
     is_deleted  BOOLEAN   DEFAULT FALSE,
     name        VARCHAR(255) NOT NULL,
     description TEXT         NOT NULL,
-    has_script  BOOLEAN      NOT NULL,
+    script_path VARCHAR(255) NOT NULL,
     arguments   JSONB        NOT NULL,
     environment JSONB        NOT NULL,
-    interpreter INTEGER      NOT NULL REFERENCES task_interpreter (id)
+    interpreter INTEGER      NOT NULL REFERENCES interpreter (id)
 );
 
 CREATE TABLE task
@@ -54,14 +54,20 @@ CREATE TABLE task
     is_deleted      BOOLEAN   DEFAULT FALSE,
     name            VARCHAR(255) NOT NULL,
     description     TEXT         NOT NULL,
-    has_source_file BOOLEAN      NOT NULL,
+    creator         INTEGER      NOT NULL,
+    depends         JSONB        NOT NULL,
+    status          Status       NOT NULL,
+    start_at        TIMESTAMP    NULL,
+    end_at          TIMESTAMP    NULL,
+    source_file_dir VARCHAR(255) NULL,
+    output_file_dir VARCHAR(255) NULL,
     arguments       JSONB        NOT NULL,
     environment     JSONB        NOT NULL,
-    retry_times     INTEGER      NOT NULL,
-    template        INTEGER      NOT NULL REFERENCES task_template (id)
+    user_data       JSONB        NOT NULL,
+    template        INTEGER      NOT NULL REFERENCES template (id)
 );
 
-CREATE TABLE task_run
+CREATE TABLE run
 (
     id          SERIAL PRIMARY KEY,
     create_at   TIMESTAMP DEFAULT NOW(),
@@ -87,13 +93,13 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_task_interpreter_modified_at
     BEFORE UPDATE
-    ON task_interpreter
+    ON interpreter
     FOR EACH ROW
 EXECUTE FUNCTION update_modified_at();
 
 CREATE TRIGGER update_task_template_modified_at
     BEFORE UPDATE
-    ON task_template
+    ON template
     FOR EACH ROW
 EXECUTE FUNCTION update_modified_at();
 
@@ -105,7 +111,7 @@ EXECUTE FUNCTION update_modified_at();
 
 CREATE TRIGGER update_task_run_modified_at
     BEFORE UPDATE
-    ON task_run
+    ON run
     FOR EACH ROW
 EXECUTE FUNCTION update_modified_at();
 

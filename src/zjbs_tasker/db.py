@@ -9,7 +9,8 @@ import databases
 import sqlalchemy
 from asyncpg import Connection
 from databases import Database
-from ormar import JSON, Boolean, DateTime, Enum, ForeignKey, Integer, Model, ModelMeta, String, Text
+from ormar import Boolean, DateTime, Enum, ForeignKey, Integer, JSON, Model, ModelMeta, String, Text
+from pydantic import Json
 from sqlalchemy import MetaData, func
 from sqlalchemy.sql import expression
 
@@ -43,10 +44,24 @@ class ModelMixin:
     is_deleted: bool = Boolean(server_default=expression.false())
 
 
+# 任务运行的状态
+class Status(StrEnum):
+    # 等待运行
+    pending = "pending"
+    # 运行中
+    running = "running"
+    # 成功结束
+    success = "success"
+    # 失败
+    failed = "failed"
+    # 取消
+    canceled = "canceled"
+
+
 # 任务可执行文件的解释器
-class TaskInterpreter(Model, ModelMixin):
+class Interpreter(Model, ModelMixin):
     class Meta(BaseMeta):
-        tablename = "task_interpreter"
+        tablename = "interpreter"
 
     # 允许的解释器类型
     class Type(StrEnum):
@@ -61,34 +76,36 @@ class TaskInterpreter(Model, ModelMixin):
     name: str = short_string()
     # 描述
     description: str = Text()
-    # 是否有可执行文件
-    has_executable: bool = Boolean()
+    # 创建者ID
+    creator: int = Integer()
     # 类型
     type: Type = Enum(enum_class=Type)
-    # 可执行文件
-    executable: list[str] = JSON()
+    # 可执行文件路径
+    executable_path: str | None = short_string(nullable=True)
     # 环境变量
     environment: dict[str, Any] = JSON()
 
 
 # 任务模板
-class TaskTemplate(Model, ModelMixin):
+class Template(Model, ModelMixin):
     class Meta(BaseMeta):
-        tablename = "task_template"
+        tablename = "template"
 
     # 名称
     name: str = short_string()
     # 描述
     description: str = Text()
-    # 是否有脚本
-    has_script: bool = Boolean()
+    # 创建者ID
+    creator: int = Integer()
+    # 脚本路径
+    script_path: str | None = short_string(nullable=True)
     # 参数
     arguments: list[str] = JSON()
     # 环境变量
     environment: dict[str, Any] = JSON()
 
     # 解释器
-    interpreter: TaskInterpreter = ForeignKey(TaskInterpreter, related_name="templates")
+    interpreter: Interpreter = ForeignKey(Interpreter, related_name="templates")
 
 
 # 任务
@@ -100,36 +117,35 @@ class Task(Model, ModelMixin):
     name: str = short_string()
     # 描述
     description: str = Text()
-    # 是否有源文件
-    has_source_file: bool = Boolean()
+    # 创建者ID
+    creator: int = Integer()
+    # 依赖的任务
+    depends: list[int] = JSON()
+    # 任务状态
+    status: Status = Enum(enum_class=Status)
+    # 开始时间
+    start_at: datetime | None = DateTime(nullable=True)
+    # 结束时间
+    end_at: datetime | None = DateTime(nullable=True)
+    # 源文件夹
+    source_file_dir: str | None = short_string(nullable=True)
+    # 目标文件夹
+    output_file_dir: str | None = short_string(nullable=True)
     # 参数
     arguments: list[str] = JSON()
     # 环境变量
     environment: dict[str, Any] = JSON()
-    # 允许重试的次数
-    retry_times: int = Integer(minimum=0)
+    # 用户自定义数据
+    user_data: Json = JSON()
 
     # 模板
-    template: TaskTemplate = ForeignKey(TaskTemplate, related_name="tasks", nullable=False)
+    template: Template = ForeignKey(Template, related_name="tasks", nullable=False)
 
 
 # 任务的一次运行
-class TaskRun(Model, ModelMixin):
+class Run(Model, ModelMixin):
     class Meta(BaseMeta):
-        tablename = "task_run"
-
-    # 任务运行的状态
-    class Status(StrEnum):
-        # 等待运行
-        pending = "pending"
-        # 运行中
-        running = "running"
-        # 成功结束
-        success = "success"
-        # 失败
-        failed = "failed"
-        # 取消
-        canceled = "canceled"
+        tablename = "run"
 
     # 序号
     index: int = Integer()
@@ -152,6 +168,15 @@ async def run_pg_script(path: Path | str) -> None:
     finally:
         if connection and not connection.is_closed():
             await connection.close()
+
+
+def print_tables_ddl() -> None:
+    from sqlalchemy.schema import CreateTable
+    from sqlalchemy.dialects import postgresql
+
+    for table in metadata.sorted_tables:
+        ddl = CreateTable(table).compile(dialect=postgresql.dialect())
+        print(ddl)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ from pathlib import Path
 from loguru import logger
 from zjbs_file_client import close_client, download_file, init_client, upload_directory
 
-from zjbs_tasker.db import Task, TaskInterpreter, TaskRun, TaskTemplate
+from zjbs_tasker.db import Task, Interpreter, Run, Template
 from zjbs_tasker.model import CompressMethod
 from zjbs_tasker.settings import FileServerPath, settings
 from zjbs_tasker.util import decompress_file
@@ -23,8 +23,8 @@ async def execute_task_run(task_run_id: int) -> None:
     # 连接数据库和文件服务器
     async with connect_database(), file_client():
         # 更新TaskRun状态
-        task_run: TaskRun = await TaskRun.objects.get(id=task_run_id)
-        await task_run.update(status=TaskRun.Status.running, start_at=datetime.now())
+        task_run: Run = await Run.objects.get(id=task_run_id)
+        await task_run.update(status=Run.Status.running, start_at=datetime.now())
 
         task = await task_run.task.load()
         task_template = await task.template.load()
@@ -64,7 +64,7 @@ async def execute_task_run(task_run_id: int) -> None:
 
         # 更新TaskRun的状态
         await task_run.update(
-            status=TaskRun.Status.success if return_code == 0 else TaskRun.Status.failed, end_at=end_at
+            status=Run.Status.success if return_code == 0 else Run.Status.failed, end_at=end_at
         )
 
         # 如果任务执行成功，删除源文件
@@ -74,7 +74,7 @@ async def execute_task_run(task_run_id: int) -> None:
 
 @asynccontextmanager
 async def connect_database() -> None:
-    database = TaskRun.Meta.database
+    database = Run.Meta.database
     try:
         if not database.is_connected:
             await database.connect()
@@ -110,7 +110,7 @@ async def download_pack_and_extract_as_dir(
 
 
 async def execute_external_executable(
-    task_run: TaskRun, task: Task, task_template: TaskTemplate, task_interpreter: TaskInterpreter | None
+    task_run: Run, task: Task, task_template: Template, task_interpreter: Interpreter | None
 ) -> int:
     run_dir = worker_task_run_dir(task_run)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -151,7 +151,7 @@ def context_logger(log_path: Path | str, level: int | str) -> None:
 
 
 def build_command(
-    task: Task, task_template: TaskTemplate, task_interpreter: TaskInterpreter | None
+    task: Task, task_template: Template, task_interpreter: Interpreter | None
 ) -> tuple[str, list[str]]:
     cmd = []
     if task_interpreter is not None:
@@ -169,7 +169,7 @@ def build_command(
 
 
 def build_environment(
-    task: Task, task_template: TaskTemplate, task_interpreter: TaskInterpreter | None, run_dir: Path | str
+    task: Task, task_template: Template, task_interpreter: Interpreter | None, run_dir: Path | str
 ) -> dict[str, str]:
     run_dir = Path(run_dir).absolute()
     env = {"INPUT_DIR": str(run_dir.parent / "source"), "OUTPUT_DIR": str(run_dir)}
@@ -180,7 +180,7 @@ def build_environment(
     return env
 
 
-async def upload_result_file(task_run: TaskRun) -> None:
+async def upload_result_file(task_run: Run) -> None:
     run_dir = worker_task_run_dir(task_run)
     await upload_directory(
         FileServerPath.task_dir(task_run.task.id, task_run.task.name), run_dir, CompressMethod.txz, mkdir=True
@@ -188,27 +188,27 @@ async def upload_result_file(task_run: TaskRun) -> None:
     shutil.rmtree(run_dir, ignore_errors=True)
 
 
-def worker_interpreter_dir(task_interpreter: TaskInterpreter) -> Path:
+def worker_interpreter_dir(task_interpreter: Interpreter) -> Path:
     return settings.WORKER_WORKING_DIR / "interpreter" / f"{task_interpreter.id}_{task_interpreter.name}"
 
 
-def worker_task_dir(task_run: TaskRun) -> Path:
+def worker_task_dir(task_run: Run) -> Path:
     return settings.WORKER_WORKING_DIR / "task" / f"{task_run.task.id}_{task_run.task.name}"
 
 
-def worker_task_run_dir(task_run: TaskRun) -> Path:
+def worker_task_run_dir(task_run: Run) -> Path:
     return worker_task_dir(task_run) / f"run_{task_run.index}"
 
 
-def worker_task_source_dir(task_run: TaskRun) -> Path:
+def worker_task_source_dir(task_run: Run) -> Path:
     return worker_task_dir(task_run) / "source"
 
 
-def worker_template_dir(task_template: TaskTemplate) -> Path:
+def worker_template_dir(task_template: Template) -> Path:
     return settings.WORKER_WORKING_DIR / "template" / f"{task_template.id}_{task_template.name}"
 
 
-def worker_executable(task_run: TaskRun) -> str:
+def worker_executable(task_run: Run) -> str:
     exe_path = (
         settings.WORKER_WORKING_DIR
         / "template"

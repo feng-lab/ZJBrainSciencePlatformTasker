@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, File, Form, Query, UploadFile
 from pydantic import BaseModel
 from zjbs_file_client import delete, rename
 
-from zjbs_tasker.db import TaskTemplate
+from zjbs_tasker.db import Template
 from zjbs_tasker.model import CompressMethod
 from zjbs_tasker.settings import FileServerPath
 from zjbs_tasker.util import invalid_request_exception, upload_file
@@ -22,7 +22,7 @@ class TaskTemplateResponse(BaseModel):
     environment: dict[str, str]
 
     @staticmethod
-    def from_db(task_template: TaskTemplate | None) -> Optional["TaskTemplateResponse"]:
+    def from_db(task_template: Template | None) -> Optional["TaskTemplateResponse"]:
         return (
             TaskTemplateResponse(
                 id=task_template.id,
@@ -46,7 +46,7 @@ async def create_task_template(
     arguments: Annotated[list[str], Body(description="参数")],
     environment: Annotated[dict[str, str], Body(description="环境变量")],
 ) -> TaskTemplateResponse:
-    template: TaskTemplate = await TaskTemplate.objects.create(
+    template: Template = await Template.objects.create(
         interpreter=interpreter,
         name=name,
         description=description,
@@ -63,7 +63,7 @@ async def upload_task_template_script(
     file: Annotated[UploadFile, File(description="任务模板脚本")],
     compress_method: Annotated[CompressMethod, Form(description="压缩方式")] = CompressMethod.not_compressed,
 ) -> None:
-    template: TaskTemplate | None = await TaskTemplate.objects.get_or_none(id=id_, is_deleted=False)
+    template: Template | None = await Template.objects.get_or_none(id=id_, is_deleted=False)
     if template is None:
         raise invalid_request_exception("task template not found")
     await upload_file(
@@ -76,7 +76,7 @@ async def upload_task_template_script(
 async def get_task_template(
     id_: Annotated[int, Query(alias="id", description="任务模板ID")]
 ) -> TaskTemplateResponse | None:
-    template: TaskTemplate | None = await TaskTemplate.objects.get_or_none(id=id_, is_deleted=False)
+    template: Template | None = await Template.objects.get_or_none(id=id_, is_deleted=False)
     return TaskTemplateResponse.from_db(template)
 
 
@@ -92,7 +92,7 @@ async def list_task_template(
         query["interpreter"] = interpreter
     if name is not None:
         query["name__icontains"] = name
-    templates: list[TaskTemplate] = await TaskTemplate.objects.offset(offset).limit(limit).all(**query)
+    templates: list[Template] = await Template.objects.offset(offset).limit(limit).all(**query)
     return [TaskTemplateResponse.from_db(template) for template in templates]
 
 
@@ -104,7 +104,7 @@ async def update_task_template(
     arguments: Annotated[list[str] | None, Body(description="参数")] = None,
     environment: Annotated[dict[str, str] | None, Body(description="环境变量")] = None,
 ) -> TaskTemplateResponse:
-    template: TaskTemplate | None = await TaskTemplate.objects.get_or_none(id=id_, is_deleted=False)
+    template: Template | None = await Template.objects.get_or_none(id=id_, is_deleted=False)
     if template is None:
         raise invalid_request_exception("task template not found")
     update_fields = {}
@@ -128,7 +128,7 @@ async def update_task_template(
 async def delete_task_template(
     id_: Annotated[int, Query(alias="id", description="任务模板ID")]
 ) -> TaskTemplateResponse | None:
-    template: TaskTemplate | None = await TaskTemplate.objects.get_or_none(id=id_, is_deleted=False)
+    template: Template | None = await Template.objects.get_or_none(id=id_, is_deleted=False)
     if template is None:
         return None
     await template.update(["is_deleted"], is_deleted=True)
@@ -137,7 +137,7 @@ async def delete_task_template(
 
 @router.post("/DeleteTaskTemplateScript", description="删除任务模板脚本")
 async def delete_task_template_script(id_: Annotated[int, Query(alias="id", description="任务模板ID")]) -> None:
-    template: TaskTemplate | None = await TaskTemplate.objects.get_or_none(id=id_, is_deleted=False)
+    template: Template | None = await Template.objects.get_or_none(id=id_, is_deleted=False)
     if template is None:
         raise invalid_request_exception("task template not found")
     if template.has_script:
