@@ -9,10 +9,10 @@ from loguru import logger
 from ormar import Model, NoMatch
 from zjbs_file_client import close_client, init_client
 
-from zjbs_tasker.api import router as api_router
 from zjbs_tasker.api.interpreter import router as interpreter_router
+from zjbs_tasker.api.task import router as task_router
 from zjbs_tasker.api.template import router as template_router
-from zjbs_tasker.db import Task, Run, database
+from zjbs_tasker.db import Run, Task, database
 from zjbs_tasker.settings import settings
 
 app: FastAPI = FastAPI(title="ZJBrainSciencePlatform Tasker", description="之江实验室 Brain Science 平台任务平台")
@@ -64,7 +64,7 @@ async def index() -> RedirectResponse:
     raise HTTPException(status_code=404, detail="/ Not Found")
 
 
-app.include_router(api_router)
+app.include_router(task_router)
 app.include_router(interpreter_router)
 app.include_router(template_router)
 

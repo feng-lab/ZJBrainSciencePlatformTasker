@@ -80,7 +80,9 @@ class Interpreter(Model, ModelMixin):
     creator: int = Integer()
     # 类型
     type: Type = Enum(enum_class=Type)
-    # 可执行文件路径
+    # 可执行文件包FileServer路径
+    executable_pack_path: str | None = short_string(nullable=True)
+    # 可执行文件相对路径
     executable_path: str | None = short_string(nullable=True)
     # 环境变量
     environment: dict[str, Any] = JSON()
@@ -97,6 +99,8 @@ class Template(Model, ModelMixin):
     description: str = Text()
     # 创建者ID
     creator: int = Integer()
+    # 脚本包FileServer路径
+    script_pack_path: str | None = short_string(nullable=True)
     # 脚本路径
     script_path: str | None = short_string(nullable=True)
     # 参数

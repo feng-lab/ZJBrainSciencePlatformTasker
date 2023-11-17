@@ -1,3 +1,4 @@
+import os
 import tarfile
 import tempfile
 import zipfile
@@ -28,7 +29,7 @@ def decompress_file(
                 zip_file.extractall(target_parent_directory)
         case CompressMethod.tgz | CompressMethod.txz:
             tar_open_args = {"mode": "r:gz" if compress_method is CompressMethod.tgz else "r:xz"}
-            if isinstance(file_path_or_obj, Path | str):
+            if isinstance(file_path_or_obj, (Path, str)):
                 tar_open_args["name"] = file_path_or_obj
             else:
                 tar_open_args["fileobj"] = file_path_or_obj
@@ -49,18 +50,20 @@ def compress_directory(
 
 
 async def upload_file(
-    file: BinaryIO, filename: str, compress_method: CompressMethod, base_dir: str, target_basename: str
+    file: BinaryIO, filename: str, compress_method: CompressMethod, base_dir: str, target_name: str
 ) -> None:
     with tempfile.TemporaryDirectory() as working_dir, tempfile.SpooledTemporaryFile() as recompressed_file:
         if compress_method == CompressMethod.not_compressed:
             not_compressed_path = Path(working_dir) / filename
             with open(not_compressed_path, "wb") as not_compressed_file:
-                while chunk := file.read(1024 * 1024):
+                while chunk := file.read(64 * 1024):
                     not_compressed_file.write(chunk)
         else:
             decompress_file(file, compress_method, working_dir)
 
         with tarfile.open(fileobj=recompressed_file, mode="w:xz") as recompressed_tar:
-            recompressed_tar.add(working_dir, arcname=target_basename)
+            for item in os.listdir(working_dir):
+                recompressed_tar.add(os.path.join(working_dir, item), arcname=item)
         recompressed_file.seek(0)
-        await upload(base_dir, recompressed_file, f"{target_basename}.txz", mkdir=True, allow_overwrite=False)
+
+        await upload(base_dir, recompressed_file, target_name, mkdir=True, allow_overwrite=False)

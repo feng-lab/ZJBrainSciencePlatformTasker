@@ -2,10 +2,10 @@ BEGIN;
 
 -- 删除之前的类型和表
 
-DROP TABLE IF EXISTS task_run;
+DROP TABLE IF EXISTS run;
 DROP TABLE IF EXISTS task;
-DROP TABLE IF EXISTS task_template;
-DROP TABLE IF EXISTS task_interpreter;
+DROP TABLE IF EXISTS template;
+DROP TABLE IF EXISTS interpreter;
 
 DROP TYPE IF EXISTS Status;
 DROP TYPE IF EXISTS Type;
@@ -20,30 +20,32 @@ CREATE TYPE Status AS ENUM ('pending', 'running', 'success', 'failed', 'canceled
 
 CREATE TABLE interpreter
 (
-    id              SERIAL PRIMARY KEY,
-    create_at       TIMESTAMP    NOT NULL DEFAULT NOW(),
-    modified_at     TIMESTAMP    NOT NULL DEFAULT NOW(),
-    is_deleted      BOOLEAN      NOT NULL DEFAULT FALSE,
-    name            VARCHAR(255) NOT NULL,
-    description     TEXT         NOT NULL,
-    creator         INTEGER      NOT NULL,
-    type            Type         NOT NULL,
-    executable_path VARCHAR(255) NOT NULL,
-    environment     JSONB        NOT NULL
+    id                   SERIAL PRIMARY KEY,
+    create_at            TIMESTAMP    NOT NULL DEFAULT NOW(),
+    modified_at          TIMESTAMP    NOT NULL DEFAULT NOW(),
+    is_deleted           BOOLEAN      NOT NULL DEFAULT FALSE,
+    name                 VARCHAR(255) NOT NULL,
+    description          TEXT         NOT NULL,
+    creator              INTEGER      NOT NULL,
+    type                 Type         NOT NULL,
+    executable_pack_path VARCHAR(255) NULL,
+    executable_path      VARCHAR(255) NULL,
+    environment          JSONB        NOT NULL
 );
 
 CREATE TABLE template
 (
-    id          SERIAL PRIMARY KEY,
-    create_at   TIMESTAMP DEFAULT NOW(),
-    modified_at TIMESTAMP DEFAULT NOW(),
-    is_deleted  BOOLEAN   DEFAULT FALSE,
-    name        VARCHAR(255) NOT NULL,
-    description TEXT         NOT NULL,
-    script_path VARCHAR(255) NOT NULL,
-    arguments   JSONB        NOT NULL,
-    environment JSONB        NOT NULL,
-    interpreter INTEGER      NOT NULL REFERENCES interpreter (id)
+    id               SERIAL PRIMARY KEY,
+    create_at        TIMESTAMP DEFAULT NOW(),
+    modified_at      TIMESTAMP DEFAULT NOW(),
+    is_deleted       BOOLEAN   DEFAULT FALSE,
+    name             VARCHAR(255) NOT NULL,
+    description      TEXT         NOT NULL,
+    script_pack_path VARCHAR(255) NULL,
+    script_path      VARCHAR(255) NULL,
+    arguments        JSONB        NOT NULL,
+    environment      JSONB        NOT NULL,
+    interpreter      INTEGER      NOT NULL REFERENCES interpreter (id)
 );
 
 CREATE TABLE task

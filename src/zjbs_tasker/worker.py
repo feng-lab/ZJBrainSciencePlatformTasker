@@ -9,14 +9,10 @@ from pathlib import Path
 from loguru import logger
 from zjbs_file_client import close_client, download_file, init_client, upload_directory
 
-from zjbs_tasker.db import Task, Interpreter, Run, Template
+from zjbs_tasker.db import Interpreter, Run, Status, Task, Template
 from zjbs_tasker.model import CompressMethod
 from zjbs_tasker.settings import FileServerPath, settings
 from zjbs_tasker.util import decompress_file
-
-
-def sync_execute_task_run(task_run_id: int) -> None:
-    asyncio.run(execute_task_run(task_run_id))
 
 
 async def execute_task_run(task_run_id: int) -> None:
@@ -24,7 +20,7 @@ async def execute_task_run(task_run_id: int) -> None:
     async with connect_database(), file_client():
         # 更新TaskRun状态
         task_run: Run = await Run.objects.get(id=task_run_id)
-        await task_run.update(status=Run.Status.running, start_at=datetime.now())
+        await task_run.update(status=Status.running, start_at=datetime.now())
 
         task = await task_run.task.load()
         task_template = await task.template.load()
@@ -63,9 +59,7 @@ async def execute_task_run(task_run_id: int) -> None:
         await upload_result_file(task_run)
 
         # 更新TaskRun的状态
-        await task_run.update(
-            status=Run.Status.success if return_code == 0 else Run.Status.failed, end_at=end_at
-        )
+        await task_run.update(status=Run.Status.success if return_code == 0 else Run.Status.failed, end_at=end_at)
 
         # 如果任务执行成功，删除源文件
         if return_code == 0:
@@ -150,9 +144,7 @@ def context_logger(log_path: Path | str, level: int | str) -> None:
             logger.remove(handle)
 
 
-def build_command(
-    task: Task, task_template: Template, task_interpreter: Interpreter | None
-) -> tuple[str, list[str]]:
+def build_command(task: Task, task_template: Template, task_interpreter: Interpreter | None) -> tuple[str, list[str]]:
     cmd = []
     if task_interpreter is not None:
         cmd.extend(task_interpreter.executable)
