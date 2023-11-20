@@ -110,7 +110,7 @@ async def execute_external_executable(
     run_dir.mkdir(parents=True, exist_ok=True)
 
     with context_logger(run_dir / "worker.log", "INFO"):
-        logger.info(f"start execute task run")
+        logger.info("start execute task run")
 
         exe, args = build_command(task, task_template, task_interpreter)
         env = build_environment(task, task_template, task_interpreter, run_dir)

@@ -40,8 +40,8 @@ class TaskTemplateResponse(BaseModel):
         )
 
 
-@router.post("/create-task-template", description="创建任务模板")
-async def create_task_template(
+@router.post("/create-template", description="创建任务模板")
+async def create_template(
     interpreter: Annotated[int, Body(description="任务解释器ID")],
     name: Annotated[str, Body(max_length=255, description="名称")],
     description: Annotated[str, Body(description="描述")],
@@ -60,8 +60,8 @@ async def create_task_template(
     return TaskTemplateResponse.from_db(template)
 
 
-@router.post("/upload-task-template-script", description="上传任务模板可执行文件")
-async def upload_task_template_script(
+@router.post("/upload-template-script", description="上传任务模板可执行文件")
+async def upload_template_script(
     id_: Annotated[int, Form(alias="id", description="任务模板ID")],
     script_pack_path: Annotated[str, Body(description="脚本包FileServer路径")],
     script_path: Annotated[str | None, Body(description="脚本路径")],
@@ -78,18 +78,16 @@ async def upload_task_template_script(
     )
 
 
-@router.post("/get-task-template", description="获取任务模板")
-async def get_task_template(
-    id_: Annotated[int, Query(alias="id", description="任务模板ID")]
-) -> TaskTemplateResponse | None:
+@router.post("/get-template", description="获取任务模板")
+async def get_template(id_: Annotated[int, Query(alias="id", description="任务模板ID")]) -> TaskTemplateResponse | None:
     template: Template | None = await Template.objects.get_or_none(id=id_, is_deleted=False)
     return TaskTemplateResponse.from_db(template)
 
 
-@router.post("/list-task-template", description="获取任务模板列表")
-async def list_task_template(
-    interpreter: Annotated[int | None, Query(alias="interpreter", description="任务解释器ID")] = None,
-    name: Annotated[str | None, Query(alias="name", description="任务模板名称")] = None,
+@router.post("/list-template", description="获取任务模板列表")
+async def list_template(
+    interpreter: Annotated[int | None, Query(description="任务解释器ID")] = None,
+    name: Annotated[str | None, Query(description="任务模板名称")] = None,
     offset: Annotated[int, Query(description="分页偏移量")] = 0,
     limit: Annotated[int, Query(description="分页大小")] = 10,
 ) -> list[TaskTemplateResponse]:
@@ -102,8 +100,8 @@ async def list_task_template(
     return [TaskTemplateResponse.from_db(template) for template in templates]
 
 
-@router.post("/update-task-template", description="更新任务模板")
-async def update_task_template(
+@router.post("/update-template", description="更新任务模板")
+async def update_template(
     id_: Annotated[int, Body(alias="id", description="任务模板ID")],
     name: Annotated[str | None, Body(max_length=255, description="名称")] = None,
     description: Annotated[str | None, Body(description="描述")] = None,
@@ -129,8 +127,8 @@ async def update_task_template(
     return TaskTemplateResponse.from_db(template)
 
 
-@router.post("/delete-task-template", description="删除任务模板")
-async def delete_task_template(
+@router.post("/delete-template", description="删除任务模板")
+async def delete_template(
     id_: Annotated[int, Query(alias="id", description="任务模板ID")]
 ) -> TaskTemplateResponse | None:
     template: Template | None = await Template.objects.get_or_none(id=id_, is_deleted=False)

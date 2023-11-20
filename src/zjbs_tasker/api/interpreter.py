@@ -21,8 +21,8 @@ class TaskInterpreterResponse(BaseModel):
     environment: dict[str, str]
 
 
-@router.post("/create-task-interpreter", description="创建任务解释器")
-async def create_task_interpreter(
+@router.post("/create-interpreter", description="创建任务解释器")
+async def create_interpreter(
     name: Annotated[str, Body(max_length=255, description="名称")],
     description: Annotated[str, Body(description="描述")],
     creator: Annotated[int, Body(description="创建者ID")],
@@ -41,8 +41,8 @@ async def create_task_interpreter(
     return TaskInterpreterResponse(**interpreter.dict())
 
 
-@router.post("/upload-task-interpreter-executable", description="上传任务解释器文件")
-async def upload_task_interpreter_executable(
+@router.post("/upload-interpreter-executable", description="上传任务解释器文件")
+async def upload_interpreter_executable(
     id_: Annotated[int, Form(alias="id", description="任务解释器ID")],
     executable_pack_path: Annotated[str, Form(description="可执行文件包FileServer路径")],
     executable_path: Annotated[str | None, Form(description="可执行文件相对路径")],
@@ -61,16 +61,16 @@ async def upload_task_interpreter_executable(
     )
 
 
-@router.post("/get-task-interpreter", description="获取任务解释器")
-async def get_task_interpreter(
+@router.post("/get-interpreter", description="获取任务解释器")
+async def get_interpreter(
     id_: Annotated[int, Query(alias="id", description="解释器ID")]
 ) -> TaskInterpreterResponse | None:
     interpreter: Interpreter | None = await Interpreter.objects.get_or_none(id=id_, is_deleted=False)
     return TaskInterpreterResponse(**interpreter.dict()) if interpreter else None
 
 
-@router.post("/list-task-interpreters", description="获取任务解释器列表")
-async def list_task_interpreters(
+@router.post("/list-interpreters", description="获取任务解释器列表")
+async def list_interpreters(
     name: Annotated[str | None, Query(alias="name", description="名称")] = None,
     type_: Annotated[Interpreter.Type | None, Query(alias="type", description="类型")] = None,
     offset: Annotated[int, Query(description="分页偏移量")] = 0,
@@ -85,8 +85,8 @@ async def list_task_interpreters(
     return [TaskInterpreterResponse(**interpreter.dict()) for interpreter in interpreters]
 
 
-@router.post("/update-task-interpreter", description="更新任务解释器")
-async def update_task_interpreter(
+@router.post("/update-interpreter", description="更新任务解释器")
+async def update_interpreter(
     id_: Annotated[int, Body(alias="id", description="解释器ID")],
     name: Annotated[str | None, Body(max_length=255, description="名称")] = None,
     description: Annotated[str | None, Body(description="描述")] = None,
@@ -110,8 +110,8 @@ async def update_task_interpreter(
     return TaskInterpreterResponse(**interpreter.dict())
 
 
-@router.post("/delete-task-interpreter", description="删除任务解释器")
-async def delete_task_interpreter(
+@router.post("/delete-interpreter", description="删除任务解释器")
+async def delete_interpreter(
     id_: Annotated[int, Query(alias="id", description="解释器ID")]
 ) -> TaskInterpreterResponse | None:
     interpreter: Interpreter | None = await Interpreter.objects.get_or_none(id=id_, is_deleted=False)

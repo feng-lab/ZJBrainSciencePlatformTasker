@@ -4,15 +4,14 @@ import sys
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi_crudrouter import OrmarCRUDRouter
 from loguru import logger
-from ormar import Model, NoMatch
+from ormar import NoMatch
 from zjbs_file_client import close_client, init_client
 
 from zjbs_tasker.api.interpreter import router as interpreter_router
 from zjbs_tasker.api.task import router as task_router
 from zjbs_tasker.api.template import router as template_router
-from zjbs_tasker.db import Run, Task, database
+from zjbs_tasker.db import database
 from zjbs_tasker.settings import settings
 
 app: FastAPI = FastAPI(title="ZJBrainSciencePlatform Tasker", description="之江实验室 Brain Science 平台任务平台")
@@ -67,25 +66,6 @@ async def index() -> RedirectResponse:
 app.include_router(task_router)
 app.include_router(interpreter_router)
 app.include_router(template_router)
-
-
-# CRUD Router
-def crud_router(model: type[Model], *include: str) -> None:
-    create_update_schema = model.get_pydantic(include=set(include))
-    # noinspection PyTypeChecker
-    app.include_router(
-        OrmarCRUDRouter(
-            model,
-            prefix=model.__name__,
-            create_schema=create_update_schema,
-            update_schema=create_update_schema,
-            tags=["CRUD"],
-        )
-    )
-
-
-crud_router(Task, "template", "name", "argument", "environment", "retry_times")
-crud_router(Run, "task", "index", "status", "start_at", "end_at")
 
 
 @app.exception_handler(NoMatch)

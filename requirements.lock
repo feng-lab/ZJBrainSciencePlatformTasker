@@ -14,7 +14,6 @@ click==8.1.7
 colorama==0.4.6
 databases==0.6.2
 fastapi==0.103.1
-fastapi-crudrouter==0.8.6
 greenlet==2.0.2
 h11==0.14.0
 httpcore==0.18.0

@@ -22,7 +22,6 @@ databases==0.6.2
 decorator==5.1.1
 executing==1.2.0
 fastapi==0.103.1
-fastapi-crudrouter==0.8.6
 flask==3.0.0
 greenlet==2.0.2
 h11==0.14.0
