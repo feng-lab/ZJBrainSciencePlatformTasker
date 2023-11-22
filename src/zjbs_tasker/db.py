@@ -65,6 +65,8 @@ class Interpreter(Model, ModelMixin):
 
     # 允许的解释器类型
     class Type(StrEnum):
+        # 系统可执行文件
+        system_executable = "system_executable"
         # 可执行文件
         executable = "executable"
         # Python脚本或模块

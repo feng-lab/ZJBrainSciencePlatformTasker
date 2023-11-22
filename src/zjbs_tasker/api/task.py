@@ -8,7 +8,7 @@ from zjbs_tasker.db import Run, Status, Task
 from zjbs_tasker.server import queue
 from zjbs_tasker.worker import execute_task_run
 
-router = APIRouter(tags=["api"])
+router = APIRouter(tags=["task"])
 
 
 class TaskResponse(BaseModel):
@@ -104,6 +104,8 @@ async def list_task(
         query["name__icontains"] = name
     if creator is not None:
         query["creator"] = creator
+    if status is not None:
+        query["status"] = status
     tasks: list[Task] = await Task.objects.filter(**query).offset(offset).limit(limit).all()
     return [TaskResponse.from_db(task) for task in tasks]
 

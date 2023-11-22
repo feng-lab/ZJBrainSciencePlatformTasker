@@ -12,7 +12,7 @@ DROP TYPE IF EXISTS Type;
 
 -- 创建枚举类型
 
-CREATE TYPE Type AS ENUM ('executable', 'python', 'nodejs');
+CREATE TYPE Type AS ENUM ('system_executable', 'executable', 'python', 'nodejs');
 
 CREATE TYPE Status AS ENUM ('pending', 'running', 'success', 'failed', 'canceled');
 

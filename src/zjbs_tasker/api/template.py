@@ -1,11 +1,10 @@
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Body, File, Form, Query, UploadFile
+from fastapi import APIRouter, Body, Query
 from pydantic import BaseModel
 
 from zjbs_tasker.db import Template
-from zjbs_tasker.model import CompressMethod
-from zjbs_tasker.util import invalid_request_exception, upload_file
+from zjbs_tasker.util import invalid_request_exception
 
 router = APIRouter(tags=["template"])
 
@@ -46,6 +45,8 @@ async def create_template(
     name: Annotated[str, Body(max_length=255, description="名称")],
     description: Annotated[str, Body(description="描述")],
     creator: Annotated[int, Body(description="创建者ID")],
+    script_pack_path: Annotated[str, Body(description="脚本包FileServer路径")],
+    script_path: Annotated[str | None, Body(description="脚本路径")],
     arguments: Annotated[list[str], Body(description="参数")],
     environment: Annotated[dict[str, str], Body(description="环境变量")],
 ) -> TaskTemplateResponse:
@@ -54,28 +55,12 @@ async def create_template(
         name=name,
         description=description,
         creator=creator,
+        script_pack_path=script_pack_path,
+        script_path=script_path,
         arguments=arguments,
         environment=environment,
     )
     return TaskTemplateResponse.from_db(template)
-
-
-@router.post("/upload-template-script", description="上传任务模板可执行文件")
-async def upload_template_script(
-    id_: Annotated[int, Form(alias="id", description="任务模板ID")],
-    script_pack_path: Annotated[str, Body(description="脚本包FileServer路径")],
-    script_path: Annotated[str | None, Body(description="脚本路径")],
-    file: Annotated[UploadFile, File(description="任务模板脚本")],
-    compress_method: Annotated[CompressMethod, Form(description="压缩方式")] = CompressMethod.not_compressed,
-) -> None:
-    template: Template | None = await Template.objects.get_or_none(id=id_, is_deleted=False)
-    if template is None:
-        raise invalid_request_exception("task template not found")
-    script_dir, script_file = script_pack_path.rsplit("/", 1)
-    await upload_file(file.file, file.filename, compress_method, script_dir, script_file)
-    await template.update(
-        ["script_pack_path", "script_path"], script_pack_path=script_pack_path, script_path=script_path
-    )
 
 
 @router.post("/get-template", description="获取任务模板")
@@ -128,9 +113,7 @@ async def update_template(
 
 
 @router.post("/delete-template", description="删除任务模板")
-async def delete_template(
-    id_: Annotated[int, Query(alias="id", description="任务模板ID")]
-) -> TaskTemplateResponse | None:
+async def delete_template(id_: Annotated[int, Query(alias="id", description="任务模板ID")]) -> TaskTemplateResponse | None:
     template: Template | None = await Template.objects.get_or_none(id=id_, is_deleted=False)
     if template is None:
         return None

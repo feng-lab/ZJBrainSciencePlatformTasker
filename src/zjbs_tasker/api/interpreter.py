@@ -1,11 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, File, Form, Query, UploadFile
+from fastapi import APIRouter, Body, Query
 from pydantic import BaseModel
 
 from zjbs_tasker.db import Interpreter
-from zjbs_tasker.model import CompressMethod
-from zjbs_tasker.util import invalid_request_exception, upload_file
+from zjbs_tasker.util import invalid_request_exception
 
 router = APIRouter(tags=["interpreter"])
 
@@ -27,6 +26,8 @@ async def create_interpreter(
     description: Annotated[str, Body(description="描述")],
     creator: Annotated[int, Body(description="创建者ID")],
     type_: Annotated[Interpreter.Type, Body(alias="type", description="解释器类型")],
+    executable_pack_path: Annotated[str | None, Body(description="可执行文件包FileServer路径")],
+    executable_path: Annotated[str | None, Body(description="可执行文件相对路径")],
     environment: Annotated[dict[str, str], Body(description="环境变量")],
 ) -> TaskInterpreterResponse:
     interpreter: Interpreter = await Interpreter.objects.create(
@@ -34,31 +35,11 @@ async def create_interpreter(
         description=description,
         creator=creator,
         type=type_,
-        executable_pack_path=None,
-        executable_path=None,
+        executable_pack_path=executable_pack_path,
+        executable_path=executable_path,
         environment=environment,
     )
     return TaskInterpreterResponse(**interpreter.dict())
-
-
-@router.post("/upload-interpreter-executable", description="上传任务解释器文件")
-async def upload_interpreter_executable(
-    id_: Annotated[int, Form(alias="id", description="任务解释器ID")],
-    executable_pack_path: Annotated[str, Form(description="可执行文件包FileServer路径")],
-    executable_path: Annotated[str | None, Form(description="可执行文件相对路径")],
-    file: Annotated[UploadFile, File(description="任务解释器文件")],
-    compress_method: Annotated[CompressMethod, Form(description="压缩方式")],
-) -> None:
-    interpreter: Interpreter | None = await Interpreter.objects.get_or_none(id=id_, is_deleted=False)
-    if interpreter is None:
-        raise invalid_request_exception("task interpreter not found")
-    exe_dir, exe_name = executable_pack_path.rsplit("/", 1)
-    await upload_file(file.file, file.filename, compress_method, exe_dir, exe_name)
-    await interpreter.update(
-        ["executable_pack_path", "executable_path"],
-        executable_pack_path=executable_pack_path,
-        executable_path=executable_path,
-    )
 
 
 @router.post("/get-interpreter", description="获取任务解释器")
