@@ -31,27 +31,21 @@ if settings.DEBUG_MODE:
     logging.getLogger("databases").setLevel(logging.DEBUG)
 
 
-# 数据库
+# 初始化
 @app.on_event("startup")
-async def connect_database() -> None:
+async def startup() -> None:
     if not database.is_connected:
         await database.connect()
 
-
-@app.on_event("shutdown")
-async def disconnect_database() -> None:
-    if database.is_connected:
-        await database.disconnect()
-
-
-# 文件服务客户端
-@app.on_event("startup")
-async def start_file_client() -> None:
     await init_client(settings.FILE_SERVER_URL, timeout=60)
 
 
+# 释放资源
 @app.on_event("shutdown")
-async def close_file_client() -> None:
+async def shutdown() -> None:
+    if database.is_connected:
+        await database.disconnect()
+
     await close_client()
 
 
@@ -71,3 +65,8 @@ app.include_router(template_router)
 @app.exception_handler(NoMatch)
 def handle_no_match(_request: Request, exception: NoMatch) -> JSONResponse:
     return JSONResponse(status_code=404, content={"detail": "Not Found", "exception": str(exception)})
+
+
+@app.exception_handler(Exception)
+def handle_exception(_request: Request, exception: Exception) -> JSONResponse:
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error", "exception": str(exception)})
