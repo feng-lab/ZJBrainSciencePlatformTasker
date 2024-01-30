@@ -16,7 +16,7 @@ services:
       test: pg_isready
 
   file-server:
-    image: cnife/zjbs-file-server:latest
+    image: caitaozjlab/zjbs-file-server:latest
     ports:
       - "7200:80"
     environment:
@@ -29,7 +29,7 @@ services:
       test: curl --fail http://localhost/docs
 
   queue:
-    image: redis:7
+    image: redis:7-alpine
     ports:
       - "7300:6379"
     healthcheck:

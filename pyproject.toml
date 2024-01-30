@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "ZJBrainSciencePlatform Tasker"
 authors = [{ name = "蔡涛", email = "caitao@zhejianglab.com" }]
 dependencies = [
-    "fastapi>=0.104.1",
-    "uvicorn>=0.24.0",
+    "fastapi>=0.109",
+    "uvicorn>=0.27",
     "ormar[postgresql]>=0.12.2",
     "python-multipart>=0.0.6",
     "loguru>=0.7.2",
@@ -41,6 +41,9 @@ dev-dependencies = [
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 
 [tool.ruff]
 src = ["src", "test", "client/src"]
